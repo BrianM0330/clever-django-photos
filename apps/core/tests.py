@@ -30,7 +30,7 @@ class LandingViewTests(TestCase):
         body = response.content.decode()
         self.assertIn("/static/css/app.css", body)
         self.assertIn("alpinejs", body)
-        self.assertIn("htmx", body)
+        self.assertIn("https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js", body)
         self.assertIn("X-CSRFToken", body)
 
     def test_landing_anonymous_shows_signup_and_signin_ctas(self) -> None:

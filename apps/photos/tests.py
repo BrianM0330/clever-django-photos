@@ -300,6 +300,8 @@ class GalleryViewTests(TestCase):
         self.assertContains(response, f'id="photo-{first.pk}"')
         self.assertContains(response, f'id="photo-{second.pk}-like"')
         self.assertContains(response, 'data-controller="gallery-lightbox"')
+        self.assertContains(response, "x-data=\"{ liked: false, count: 0 }\"")
+        self.assertContains(response, '@submit="count += liked ? -1 : 1; liked = !liked"')
         self.assertContains(response, 'class="relative aspect-square overflow-hidden rounded-2xl')
         self.assertContains(response, 'class="absolute right-3 top-3 z-10"')
         self.assertContains(response, first.photographer)
@@ -322,6 +324,7 @@ class GalleryViewTests(TestCase):
         self.assertContains(response, "Copy source URL")
         self.assertContains(response, photo.url)
         self.assertContains(response, 'aria-pressed="true"')
+        self.assertContains(response, "x-data=\"{ liked: true, count: 1 }\"")
         self.assertContains(response, f'hx-delete="{reverse("photos:like_toggle", kwargs={"pk": photo.pk})}"')
 
     def test_photo_detail_missing_photo_returns_404(self):
@@ -394,7 +397,36 @@ class GalleryViewTests(TestCase):
         self.assertTemplateUsed(response, "photos/_like_button.html")
         self.assertContains(response, f'id="photo-{photo.pk}-like"')
         self.assertContains(response, 'aria-pressed="true"')
+        self.assertContains(response, ':aria-pressed="liked.toString()"')
+        self.assertContains(response, "x-text=\"count\"")
         self.assertContains(response, 'data-icon="star-fill"')
+
+    def test_like_form_fallback_redirects_to_next(self):
+        user = self.create_user()
+        photo = self.create_photo()
+        self.client.force_login(user)
+        url = reverse("photos:like_toggle", kwargs={"pk": photo.pk})
+
+        response = self.client.post(url, {"next": reverse("photos:index")})
+        photo.refresh_from_db()
+
+        self.assertRedirects(response, reverse("photos:index"), fetch_redirect_response=False)
+        self.assertTrue(Like.objects.filter(user=user, photo=photo).exists())
+        self.assertEqual(photo.likes_count, 1)
+
+    def test_like_form_fallback_can_unlike_with_method_override(self):
+        user = self.create_user()
+        photo = self.create_photo()
+        Like.objects.create(user=user, photo=photo)
+        self.client.force_login(user)
+        url = reverse("photos:like_toggle", kwargs={"pk": photo.pk})
+
+        response = self.client.post(url, {"_method": "delete", "next": reverse("photos:index")})
+        photo.refresh_from_db()
+
+        self.assertRedirects(response, reverse("photos:index"), fetch_redirect_response=False)
+        self.assertFalse(Like.objects.filter(user=user, photo=photo).exists())
+        self.assertEqual(photo.likes_count, 0)
 
     def test_comment_create_route_persists_comment(self):
         user = self.create_user()

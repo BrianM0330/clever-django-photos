@@ -48,6 +48,10 @@ class PhotoDetailView(LoginRequiredMixin, DetailView):
 class LikeToggleView(LoginRequiredMixin, View):
     def post(self, request, pk):
         photo = get_object_or_404(Photo, pk=pk)
+        if request.POST.get("_method", "").lower() == "delete":
+            Like.delete_for(user=request.user, photo=photo)
+            return self.render_response(request, photo, liked=False)
+
         Like.create_for(user=request.user, photo=photo)
         return self.render_response(request, photo, liked=True)
 
@@ -61,6 +65,9 @@ class LikeToggleView(LoginRequiredMixin, View):
         photo.liked_by_current_user = liked
         if request.headers.get("HX-Request"):
             return render(request, "photos/_like_button.html", {"photo": photo, "liked": liked})
+
+        if next_url := request.POST.get("next"):
+            return redirect(next_url)
 
         return JsonResponse({"liked": liked, "likes_count": photo.likes_count})
 

@@ -1,16 +1,25 @@
-<div id="photo-{{ photo.pk }}-like">
-  <button type="button"
-          class="group inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-sm font-semibold shadow-sm ring-1 transition duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 {% if photo.liked_by_current_user %}bg-white/95 text-zinc-950 ring-white/40 hover:bg-zinc-100{% else %}bg-zinc-950/60 text-white ring-white/20 hover:bg-zinc-900 hover:ring-white/30{% endif %}"
-          aria-label="{% if photo.liked_by_current_user %}Unlike{% else %}Like{% endif %} photo by {{ photo.photographer }}"
-          aria-pressed="{% if photo.liked_by_current_user %}true{% else %}false{% endif %}"
-          {% if photo.liked_by_current_user %}hx-delete{% else %}hx-post{% endif %}="{% url 'photos:like_toggle' photo.pk %}"
-          hx-target="#photo-{{ photo.pk }}-like"
-          hx-swap="outerHTML">
-    {% if photo.liked_by_current_user %}
-      <svg class="h-4.5 w-4.5 shrink-0 text-zinc-950 transition-transform duration-150 ease-out group-active:scale-90" aria-hidden="true" data-icon="star-fill" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12.0006 18.26L4.94715 22.2082L6.52248 14.2799L0.587891 8.7918L8.61493 7.84006L12.0006 0.5L15.3862 7.84006L23.4132 8.7918L17.4787 14.2799L19.054 22.2082L12.0006 18.26Z"></path></svg>
-    {% else %}
-      <svg class="h-4.5 w-4.5 shrink-0 text-white transition-transform duration-150 ease-out group-active:scale-90" aria-hidden="true" data-icon="star-line" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12.0006 18.26L4.94715 22.2082L6.52248 14.2799L0.587891 8.7918L8.61493 7.84006L12.0006 0.5L15.3862 7.84006L23.4132 8.7918L17.4787 14.2799L19.054 22.2082L12.0006 18.26ZM12.0006 15.968L16.2473 18.3451L15.2988 13.5717L18.8719 10.2674L14.039 9.69434L12.0006 5.27502L9.96214 9.69434L5.12921 10.2674L8.70231 13.5717L7.75383 18.3451L12.0006 15.968Z"></path></svg>
-    {% endif %}
-    {% include "photos/_like_count.html" with photo=photo %}
-  </button>
+<div id="photo-{{ photo.pk }}-like"
+     x-data="{ liked: {{ photo.liked_by_current_user|yesno:'true,false' }}, count: {{ photo.likes_count }} }">
+  <form method="post"
+        action="{% url 'photos:like_toggle' photo.pk %}"
+        class="inline"
+        {% if photo.liked_by_current_user %}hx-delete{% else %}hx-post{% endif %}="{% url 'photos:like_toggle' photo.pk %}"
+        hx-target="#photo-{{ photo.pk }}-like"
+        hx-swap="outerHTML"
+        @submit="count += liked ? -1 : 1; liked = !liked">
+    {% csrf_token %}
+    {% if photo.liked_by_current_user %}<input type="hidden" name="_method" value="delete">{% endif %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit"
+            class="group inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-sm font-semibold shadow-sm ring-1 transition duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500"
+            :class="liked ? 'bg-white/95 text-zinc-950 ring-white/40 hover:bg-zinc-100' : 'bg-zinc-950/60 text-white ring-white/20 hover:bg-zinc-900 hover:ring-white/30'"
+            aria-label="{% if photo.liked_by_current_user %}Unlike{% else %}Like{% endif %} photo by {{ photo.photographer }}"
+            :aria-label="(liked ? 'Unlike' : 'Like') + ' photo by {{ photo.photographer|escapejs }}'"
+            aria-pressed="{% if photo.liked_by_current_user %}true{% else %}false{% endif %}"
+            :aria-pressed="liked.toString()">
+      <svg x-show="liked" x-cloak class="h-4.5 w-4.5 shrink-0 text-zinc-950 transition-transform duration-150 ease-out group-active:scale-90" aria-hidden="true" data-icon="star-fill" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12.0006 18.26L4.94715 22.2082L6.52248 14.2799L0.587891 8.7918L8.61493 7.84006L12.0006 0.5L15.3862 7.84006L23.4132 8.7918L17.4787 14.2799L19.054 22.2082L12.0006 18.26Z"></path></svg>
+      <svg x-show="!liked" x-cloak class="h-4.5 w-4.5 shrink-0 text-white transition-transform duration-150 ease-out group-active:scale-90" aria-hidden="true" data-icon="star-line" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12.0006 18.26L4.94715 22.2082L6.52248 14.2799L0.587891 8.7918L8.61493 7.84006L12.0006 0.5L15.3862 7.84006L23.4132 8.7918L17.4787 14.2799L19.054 22.2082L12.0006 18.26ZM12.0006 15.968L16.2473 18.3451L15.2988 13.5717L18.8719 10.2674L14.039 9.69434L12.0006 5.27502L9.96214 9.69434L5.12921 10.2674L8.70231 13.5717L7.75383 18.3451L12.0006 15.968Z"></path></svg>
+      <span id="photo-{{ photo.pk }}-like_count" x-text="count" class="tabular-nums transition-transform duration-150 ease-out group-active:scale-95">{{ photo.likes_count }}</span>
+    </button>
+  </form>
 </div>
