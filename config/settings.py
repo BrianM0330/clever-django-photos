@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Local
+    "apps.accounts",
     "apps.core",
     "apps.photos",
 ]
@@ -106,6 +107,11 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Auth -----------------------------------------------------------------------
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/photos/"
+LOGOUT_REDIRECT_URL = "/"
 
 # Background tasks ----------------------------------------------------------
 # Django 6.0's native `django.tasks` framework. The `immediate` backend runs
