@@ -1,6 +1,7 @@
 Django>=6.0,<6.1
+channels>=4.2,<5
+daphne>=4.1,<5
 dj-database-url>=3.0
-gunicorn>=23.0
 whitenoise>=6.8
 
 # Background tasks: Django 6.0 ships `django.tasks` natively with the

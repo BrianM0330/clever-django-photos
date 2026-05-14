@@ -23,6 +23,7 @@ ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserve
 # Apps & middleware ---------------------------------------------------------
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -65,6 +66,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+# WebSockets ----------------------------------------------------------------
+# Keep the first realtime version deliberately simple: one ASGI process with
+# in-memory live broadcasts. Add `channels-redis` + REDIS_URL before running
+# multiple ASGI worker processes or multiple app servers.
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 # Database ------------------------------------------------------------------
 # SQLite by default. Override with DATABASE_URL=postgres://user:pass@host/db

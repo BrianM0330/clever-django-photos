@@ -1,2 +1,2 @@
-web: .venv/bin/python manage.py runserver
+web: .venv/bin/daphne -b 127.0.0.1 -p 8000 config.asgi:application
 css: bin/tailwindcss -i static/css/input.css -o static/css/app.css --watch

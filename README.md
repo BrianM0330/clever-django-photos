@@ -15,7 +15,7 @@ to maximize what ships in stock Django and minimize third-party dependencies.
 - **Tailwind CSS v4** via the standalone CLI binary (no Node, no `tailwind.config.js`)
 - **PhotoSwipe 5** lightbox (CDN)
 - **Whitenoise** for static asset serving in production
-- **Gunicorn** for the WSGI server
+- **Daphne + Channels** for ASGI HTTP/WebSocket serving
 - **`django.contrib.auth`** stock — email login via a custom `User(AbstractUser)`,
   no Devise/Allauth equivalent, no password reset flow, no social login
 - **`django.tasks`** with the in-process `immediate` backend; swap to
@@ -61,7 +61,7 @@ bin/dev
 ```
 
 This wraps `honcho -f Procfile.dev start`, which starts the two processes
-declared in `Procfile.dev` (`web: manage.py runserver` and
+declared in `Procfile.dev` (`web: daphne ... config.asgi:application` and
 `css: bin/tailwindcss … --watch`), interleaves their logs, and shuts both
 down on `Ctrl-C`. Visit <http://127.0.0.1:8000/>.
 
@@ -71,8 +71,8 @@ If you'd rather run them separately (clearer Tailwind error output):
 # Terminal 1 — Tailwind watcher
 bin/tailwindcss -i static/css/input.css -o static/css/app.css --watch
 
-# Terminal 2 — Django
-python manage.py runserver
+# Terminal 2 — Django ASGI + WebSockets
+daphne -b 127.0.0.1 -p 8000 config.asgi:application
 ```
 
 For a one-shot production-style build (no watcher):
@@ -137,7 +137,7 @@ the manifest-static storage backend (cache-busting hashed filenames).
 ## Deployment
 
 Target: a single small VPS (Hetzner CX22 or DigitalOcean $6 droplet) running
-**Caddy → Gunicorn → Django** with **systemd** supervising the process.
+**Caddy → Daphne → Django ASGI** with **systemd** supervising the process.
 
 This is intentionally not Fly.io / not Docker / not Kubernetes — it's the
 simplest production setup that still does TLS, log rotation, and crash recovery
@@ -163,14 +163,14 @@ git pull
 .venv/bin/python manage.py migrate
 bin/tailwindcss -i static/css/input.css -o static/css/app.css --minify
 .venv/bin/python manage.py collectstatic --noinput
-sudo systemctl restart clever-gunicorn
+sudo systemctl restart clever-daphne
 ```
 
-### Systemd unit (`/etc/systemd/system/clever-gunicorn.service`)
+### Systemd unit (`/etc/systemd/system/clever-daphne.service`)
 
 ```ini
 [Unit]
-Description=Clever Gallery (Gunicorn)
+Description=Clever Gallery (Daphne)
 After=network.target
 
 [Service]
@@ -178,8 +178,8 @@ User=clever
 Group=clever
 WorkingDirectory=/opt/clever/app
 EnvironmentFile=/opt/clever/app/.env
-ExecStart=/opt/clever/app/.venv/bin/gunicorn config.wsgi:application \
-  --bind 127.0.0.1:8000 --workers 3 --access-logfile - --error-logfile -
+ExecStart=/opt/clever/app/.venv/bin/daphne \
+  -b 127.0.0.1 -p 8000 config.asgi:application
 Restart=on-failure
 
 [Install]
@@ -232,6 +232,12 @@ flip, toast dismissal). No build step beyond Tailwind. Both libraries are
 loaded from CDN at pinned versions for reproducibility — easy to vendor into
 `static/` later (the migration doc covers this when CSP gets tightened).
 
+Realtime like counts use Django Channels over WebSockets. The initial deployment
+uses Channels' in-memory layer, which is deliberately single-process: one Daphne
+process owns the connected sockets and broadcasts. If you run multiple ASGI
+workers or multiple app servers, add `channels-redis` and configure `REDIS_URL`
+so broadcasts reach sockets connected to other processes.
+
 ### Tailwind
 
 Tailwind v4's CSS-only configuration: theme tokens, components, and
@@ -250,6 +256,11 @@ the Rails `create_or_find_by`.
 `post_delete` signals using `F()` expressions to avoid race conditions on
 concurrent updates. Avoids N+1 on the gallery index without an aggregation
 query.
+
+When likes change, the HTTP view broadcasts the fresh aggregate `likes_count` to
+authenticated WebSocket clients watching that photo. The current user's personal
+`liked` state still comes from the HTMX response; realtime only updates the
+global count.
 
 ### Tests
 
