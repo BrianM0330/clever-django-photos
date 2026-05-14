@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxLengthValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 
 
 class Photo(models.Model):
@@ -51,6 +51,19 @@ class Photo(models.Model):
     @classmethod
     def by_photographer(cls, photographer_id: int):
         return cls.objects.filter(photographer_id=photographer_id)
+
+    @classmethod
+    def liked_ids_for(cls, user, photos):
+        if not user.is_authenticated:
+            return set()
+
+        return set(Like.objects.filter(user=user, photo__in=photos).values_list("photo_id", flat=True))
+
+    def liked_by(self, user) -> bool:
+        if not user.is_authenticated:
+            return False
+
+        return Like.objects.filter(user=user, photo=self).exists()
 
     @property
     def src_original(self) -> str:
@@ -112,6 +125,15 @@ class Like(models.Model):
     def __str__(self) -> str:
         return f"{self.user_id} likes {self.photo_id}"
 
+    @classmethod
+    def create_for(cls, *, user, photo):
+        return cls.objects.get_or_create(user=user, photo=photo)
+
+    @classmethod
+    def delete_for(cls, *, user, photo) -> int:
+        deleted, _ = cls.objects.filter(user=user, photo=photo).delete()
+        return deleted
+
 
 class Comment(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments")
@@ -128,6 +150,14 @@ class Comment(models.Model):
 
     def __str__(self) -> str:
         return self.body
+
+    @classmethod
+    def create_for(cls, *, user, photo, body: str):
+        with transaction.atomic():
+            comment = cls(user=user, photo=photo, body=body)
+            comment.full_clean()
+            comment.save()
+            return comment
 
     def clean(self) -> None:
         super().clean()
