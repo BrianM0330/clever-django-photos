@@ -34,6 +34,14 @@
       },
     }));
 
+    Alpine.data("likeButton", ({ liked }) => ({
+      liked,
+
+      toggle() {
+        this.liked = !this.liked;
+      },
+    }));
+
     Alpine.data("photoSwipeGallery", () => ({
       lightbox: null,
       loading: null,

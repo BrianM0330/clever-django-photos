@@ -1,15 +1,24 @@
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+from time import sleep
+from unittest.mock import patch
 
+from asgiref.sync import async_to_sync
+from channels.db import database_sync_to_async
+from channels.layers import get_channel_layer
+from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, OperationalError, close_old_connections, transaction
 from django.db.models import Sum
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 
+from apps.photos.consumers import PhotoLikesConsumer
 from apps.photos.models import Comment, Like, Photo
+from apps.photos.realtime import photo_likes_group_name
 
 
 class GalleryModelTests(TestCase):
@@ -211,6 +220,249 @@ class GalleryModelTests(TestCase):
         return photo
 
 
+class RealtimeLikeTests(TransactionTestCase):
+    def test_authenticated_socket_receives_initial_like_count(self):
+        user = self.create_user()
+        photo = self.create_photo(likes_count=2)
+
+        message = async_to_sync(self.receive_initial_message)(user, photo)
+
+        self.assertIn(f'id="photo-{photo.pk}-like_count"', message)
+        self.assertIn('hx-swap-oob="true"', message)
+        self.assertIn(">2</span>", message)
+
+    def test_anonymous_socket_is_rejected(self):
+        photo = self.create_photo()
+
+        connected = async_to_sync(self.connect_anonymous)(photo)
+
+        self.assertFalse(connected)
+
+    def test_socket_receives_broadcast_like_count(self):
+        user = self.create_user()
+        photo = self.create_photo(likes_count=1)
+
+        message = async_to_sync(self.receive_broadcast_message)(user, photo, likes_count=4)
+
+        self.assertIn(f'id="photo-{photo.pk}-like_count"', message)
+        self.assertIn('hx-swap-oob="true"', message)
+        self.assertIn(">4</span>", message)
+
+    def test_observer_who_liked_receives_other_user_like_increment(self):
+        observer = self.create_user(username="brian")
+        actor = self.create_user(username="ryan")
+        photo = self.create_photo()
+        Like.objects.create(user=observer, photo=photo)
+        photo.refresh_from_db()
+
+        messages = async_to_sync(self.receive_messages_after_view_actions)(
+            observer,
+            photo,
+            [("post", actor)],
+        )
+        photo.refresh_from_db()
+
+        self.assertEqual(messages, [1, 2])
+        self.assertTrue(Like.objects.filter(user=observer, photo=photo).exists())
+        self.assertTrue(Like.objects.filter(user=actor, photo=photo).exists())
+        self.assertEqual(photo.likes_count, 2)
+
+    def test_observer_who_liked_receives_other_user_unlike_decrement(self):
+        observer = self.create_user(username="brian")
+        actor = self.create_user(username="ryan")
+        photo = self.create_photo()
+        Like.objects.create(user=observer, photo=photo)
+        Like.objects.create(user=actor, photo=photo)
+        photo.refresh_from_db()
+
+        messages = async_to_sync(self.receive_messages_after_view_actions)(
+            observer,
+            photo,
+            [("delete", actor)],
+        )
+        photo.refresh_from_db()
+
+        self.assertEqual(messages, [2, 1])
+        self.assertTrue(Like.objects.filter(user=observer, photo=photo).exists())
+        self.assertFalse(Like.objects.filter(user=actor, photo=photo).exists())
+        self.assertEqual(photo.likes_count, 1)
+
+    def test_observer_who_liked_receives_other_user_like_then_unlike_sequence(self):
+        observer = self.create_user(username="brian")
+        actor = self.create_user(username="ryan")
+        photo = self.create_photo()
+        Like.objects.create(user=observer, photo=photo)
+        photo.refresh_from_db()
+
+        messages = async_to_sync(self.receive_messages_after_view_actions)(
+            observer,
+            photo,
+            [("post", actor), ("delete", actor)],
+        )
+        photo.refresh_from_db()
+
+        self.assertEqual(messages, [1, 2, 1])
+        self.assertTrue(Like.objects.filter(user=observer, photo=photo).exists())
+        self.assertFalse(Like.objects.filter(user=actor, photo=photo).exists())
+        self.assertEqual(photo.likes_count, 1)
+
+    async def receive_initial_message(self, user, photo):
+        communicator = self.communicator_for(user, photo)
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        message = await communicator.receive_from()
+        await communicator.disconnect()
+        return message
+
+    async def connect_anonymous(self, photo):
+        communicator = self.communicator_for(AnonymousUser(), photo)
+        connected, _ = await communicator.connect()
+        await communicator.disconnect()
+        return connected
+
+    async def receive_broadcast_message(self, user, photo, *, likes_count):
+        communicator = self.communicator_for(user, photo)
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        await communicator.receive_from()
+
+        await get_channel_layer().group_send(
+            photo_likes_group_name(photo.pk),
+            {
+                "type": "photo.like_count",
+                "photo_id": photo.pk,
+                "likes_count": likes_count,
+            },
+        )
+        message = await communicator.receive_from()
+        await communicator.disconnect()
+        return message
+
+    async def receive_messages_after_view_actions(self, observer, photo, actions):
+        communicator = self.communicator_for(observer, photo)
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+
+        messages = [self.extract_like_count(await communicator.receive_from())]
+        for method, actor in actions:
+            response_status = await self.perform_like_request(method, actor, photo)
+            self.assertEqual(response_status, 200)
+            messages.append(self.extract_like_count(await communicator.receive_from()))
+
+        await communicator.disconnect()
+        return messages
+
+    @database_sync_to_async
+    def perform_like_request(self, method, user, photo):
+        self.client.force_login(user)
+        url = reverse("photos:like_toggle", kwargs={"pk": photo.pk})
+        if method == "post":
+            response = self.client.post(url)
+        elif method == "delete":
+            response = self.client.delete(url)
+        else:
+            raise ValueError(f"Unsupported like request method: {method}")
+
+        return response.status_code
+
+    def communicator_for(self, user, photo):
+        communicator = WebsocketCommunicator(PhotoLikesConsumer.as_asgi(), f"/ws/photos/{photo.pk}/likes/")
+        communicator.scope["user"] = user
+        communicator.scope["url_route"] = {"kwargs": {"photo_id": photo.pk}}
+        return communicator
+
+    def extract_like_count(self, html):
+        return int(html.split("</span>", 1)[0].rsplit(">", 1)[1])
+
+    def create_user(self, username="brian"):
+        return get_user_model().objects.create_user(username=username, password="password")
+
+    def build_photo(self, **attributes):
+        defaults = {
+            "pexels_id": 21_751_820,
+            "width": 3888,
+            "height": 5184,
+            "url": "https://www.pexels.com/photo/example-21751820/",
+            "photographer": "Felix",
+            "photographer_url": "https://www.pexels.com/@felix",
+            "photographer_id": 21_751_820,
+            "avg_color": "#333831",
+            "alt": "A small island surrounded by trees in the middle of a lake",
+        }
+        defaults.update(attributes)
+        return Photo(**defaults)
+
+    def create_photo(self, **attributes):
+        photo = self.build_photo(**attributes)
+        photo.save()
+        return photo
+
+
+class CounterCacheConcurrencyTests(TransactionTestCase):
+    def test_concurrent_like_get_or_create_creates_one_row_and_increments_counter_once(self):
+        user = self.create_user()
+        photo = self.create_photo()
+        user_id = user.pk
+        photo_id = photo.pk
+
+        def create_like():
+            close_old_connections()
+            try:
+                for attempt in range(100):
+                    try:
+                        Like.objects.get_or_create(user_id=user_id, photo_id=photo_id)
+                        return
+                    except OperationalError:
+                        close_old_connections()
+                        if attempt == 99:
+                            raise
+                        sleep(0.02)
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=50) as executor:
+            list(executor.map(lambda _index: create_like(), range(50)))
+
+        photo.refresh_from_db()
+        self.assertEqual(Like.objects.filter(user=user, photo=photo).count(), 1)
+        self.assertEqual(photo.likes_count, 1)
+
+    def test_repeated_like_unlike_loop_returns_counter_to_zero(self):
+        user = self.create_user()
+        photo = self.create_photo()
+
+        for _index in range(1000):
+            Like.create_for(user=user, photo=photo)
+            Like.delete_for(user=user, photo=photo)
+
+        photo.refresh_from_db()
+        self.assertFalse(Like.objects.filter(user=user, photo=photo).exists())
+        self.assertEqual(photo.likes_count, 0)
+
+    def create_user(self, username="brian"):
+        return get_user_model().objects.create_user(username=username, password="password")
+
+    def build_photo(self, **attributes):
+        defaults = {
+            "pexels_id": 21_751_820,
+            "width": 3888,
+            "height": 5184,
+            "url": "https://www.pexels.com/photo/example-21751820/",
+            "photographer": "Felix",
+            "photographer_url": "https://www.pexels.com/@felix",
+            "photographer_id": 21_751_820,
+            "avg_color": "#333831",
+            "alt": "A small island surrounded by trees in the middle of a lake",
+        }
+        defaults.update(attributes)
+        return Photo(**defaults)
+
+    def create_photo(self, **attributes):
+        photo = self.build_photo(**attributes)
+        photo.save()
+        return photo
+
+
 class SeedAllCommandTests(TestCase):
     def test_seed_all_creates_expected_counts(self):
         call_command("seed_all", stdout=StringIO())
@@ -301,8 +553,11 @@ class GalleryViewTests(TestCase):
         self.assertContains(response, f'id="photo-{second.pk}-like"')
         self.assertContains(response, 'x-data="photoSwipeGallery"')
         self.assertContains(response, 'data-pswp-srcset=')
-        self.assertContains(response, "x-data=\"{ liked: false, count: 0 }\"")
-        self.assertContains(response, '@submit="count += liked ? -1 : 1; liked = !liked"')
+        self.assertContains(response, "x-data=\"likeButton({ liked:")
+        self.assertContains(response, 'hx-ext="ws"')
+        self.assertContains(response, 'ws-connect="/ws/photos/')
+        self.assertContains(response, '@submit="toggle()"')
+        self.assertContains(response, "like_count")
         self.assertContains(response, 'class="relative aspect-square overflow-hidden rounded-2xl')
         self.assertContains(response, 'class="absolute right-3 top-3 z-10"')
         self.assertContains(response, first.photographer)
@@ -326,7 +581,8 @@ class GalleryViewTests(TestCase):
         self.assertContains(response, 'x-data="copySource"')
         self.assertContains(response, photo.url)
         self.assertContains(response, 'aria-pressed="true"')
-        self.assertContains(response, "x-data=\"{ liked: true, count: 1 }\"")
+        self.assertContains(response, "liked: true")
+        self.assertContains(response, "like_count")
         self.assertContains(response, f'hx-delete="{reverse("photos:like_toggle", kwargs={"pk": photo.pk})}"')
 
     def test_photo_detail_missing_photo_returns_404(self):
@@ -351,6 +607,20 @@ class GalleryViewTests(TestCase):
         self.assertJSONEqual(first_response.content, {"liked": True, "likes_count": 1})
         self.assertEqual(Like.objects.filter(user=user, photo=photo).count(), 1)
         self.assertEqual(photo.likes_count, 1)
+
+    def test_like_post_broadcasts_realtime_count(self):
+        user = self.create_user()
+        photo = self.create_photo()
+        self.client.force_login(user)
+
+        with patch("apps.photos.views.broadcast_photo_like_count") as broadcast:
+            response = self.client.post(reverse("photos:like_toggle", kwargs={"pk": photo.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        broadcast.assert_called_once()
+        broadcast_photo = broadcast.call_args.args[0]
+        self.assertEqual(broadcast_photo.pk, photo.pk)
+        self.assertEqual(broadcast_photo.likes_count, 1)
 
     def test_like_post_missing_photo_returns_404(self):
         self.client.force_login(self.create_user())
@@ -398,9 +668,10 @@ class GalleryViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "photos/_like_button.html")
         self.assertContains(response, f'id="photo-{photo.pk}-like"')
+        self.assertContains(response, "likeButton({ liked:")
         self.assertContains(response, 'aria-pressed="true"')
         self.assertContains(response, ':aria-pressed="liked.toString()"')
-        self.assertContains(response, "x-text=\"count\"")
+        self.assertContains(response, "like_count")
         self.assertContains(response, 'data-icon="star-fill"')
 
     def test_like_form_fallback_redirects_to_next(self):

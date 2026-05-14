@@ -7,6 +7,7 @@ from django.views import View
 from django.views.generic import DetailView, ListView
 
 from apps.photos.models import Comment, Like, Photo
+from apps.photos.realtime import broadcast_photo_like_count
 
 
 class PhotoListView(LoginRequiredMixin, ListView):
@@ -63,6 +64,7 @@ class LikeToggleView(LoginRequiredMixin, View):
     def render_response(self, request, photo, *, liked: bool):
         photo.refresh_from_db(fields=["likes_count"])
         photo.liked_by_current_user = liked
+        broadcast_photo_like_count(photo)
         if request.headers.get("HX-Request"):
             return render(request, "photos/_like_button.html", {"photo": photo, "liked": liked})
 

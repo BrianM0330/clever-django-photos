@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
 from django.test import TestCase
 from django.urls import reverse
 
@@ -31,7 +32,21 @@ class LandingViewTests(TestCase):
         self.assertIn("/static/css/app.css", body)
         self.assertIn("alpinejs", body)
         self.assertIn("https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js", body)
+        self.assertIn("https://cdn.jsdelivr.net/npm/htmx-ext-ws@2.0.4", body)
         self.assertIn("X-CSRFToken", body)
+
+    def test_app_js_keeps_like_button_state_local(self) -> None:
+        app_js_path = finders.find("js/app.js")
+        self.assertIsNotNone(app_js_path)
+
+        with open(app_js_path) as app_js:
+            body = app_js.read()
+
+        self.assertNotIn('Alpine.store("likeRealtime"', body)
+        self.assertNotIn("new WebSocket", body)
+        self.assertIn('Alpine.data("likeButton"', body)
+        self.assertIn("toggle()", body)
+        self.assertIn("this.liked = !this.liked", body)
 
     def test_landing_anonymous_shows_signup_and_signin_ctas(self) -> None:
         response = self.client.get(reverse("core:landing"))
