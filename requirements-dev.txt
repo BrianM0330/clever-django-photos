@@ -1,0 +1,6 @@
+# Dev-only deps. Install with: pip install -r requirements-dev.txt
+-r requirements.txt
+
+# Process manager — runs Django + Tailwind watcher together via Procfile.dev.
+# Foreman's Python twin. Used by `bin/dev`.
+honcho>=2.0

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Run the dev server (Django) and Tailwind watcher together.
+# Honcho streams both processes' logs to the terminal; Ctrl-C kills both.
+set -euo pipefail
+exec "$(dirname "$0")/../.venv/bin/honcho" -f Procfile.dev start "$@"

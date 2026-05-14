@@ -1,0 +1,2 @@
+web: .venv/bin/python manage.py runserver
+css: bin/tailwindcss -i static/css/input.css -o static/css/app.css --watch

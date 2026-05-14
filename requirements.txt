@@ -1,0 +1,8 @@
+Django>=6.0,<6.1
+dj-database-url>=3.0
+gunicorn>=23.0
+whitenoise>=6.8
+
+# Background tasks: Django 6.0 ships `django.tasks` natively with the
+# `immediate` backend. Add `django-tasks-db` here when you want a real worker
+# process backed by SQLite/Postgres.

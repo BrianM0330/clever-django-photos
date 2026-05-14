@@ -1,0 +1,101 @@
+/* Tailwind v4 — CSS-only config. No tailwind.config.js. */
+@import "tailwindcss";
+
+/* Tell v4 where to scan for class names. */
+@source "../../templates/**/*.html";
+@source "../../apps/**/templates/**/*.html";
+@source "../../static/js/**/*.js";
+
+/* Brand palette — ported from Rails app/assets/tailwind/application.css */
+@theme {
+  --color-clever: #0075eb;
+  --color-clever-50: #eef7ff;
+  --color-clever-100: #d9edff;
+  --color-clever-200: #bce0ff;
+  --color-clever-300: #8ecfff;
+  --color-clever-400: #58b6ff;
+  --color-clever-500: #309bff;
+  --color-clever-600: #1b7cf4;
+  --color-clever-700: #1162de;
+  --color-clever-800: #134db6;
+  --color-clever-900: #15428f;
+  --color-clever-950: #122a57;
+}
+
+/* Reusable component classes — ported from Rails app/assets/tailwind/application.css */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-clever-600 px-5 py-2.5
+           text-sm font-semibold text-white transition hover:bg-clever-700
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-clever-100
+           dark:focus-visible:ring-clever-900;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-zinc-300
+           bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition
+           hover:bg-zinc-50 focus:outline-none focus-visible:ring-4
+           focus-visible:ring-zinc-100 dark:bg-zinc-800 dark:text-zinc-100
+           dark:border-zinc-700 dark:hover:bg-zinc-700 dark:focus-visible:ring-zinc-800;
+  }
+
+  .input-field {
+    @apply block w-full rounded-lg border border-zinc-300 bg-zinc-50 p-2.5
+           text-zinc-900 focus:border-clever-500 focus:ring-clever-500
+           focus:outline-none dark:bg-zinc-900 dark:border-zinc-700
+           dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500;
+  }
+}
+
+/* Landing-page SVG line-draw animation — ported from Rails
+   app/assets/tailwind/application.css. Each <path pathLength="1"> in the
+   hero illustration starts fully dashed, then `draw` shrinks the offset to 0
+   so the line appears to be drawn. The `delay-*` utilities stagger the
+   sequence; they intentionally only target `animation-delay` (Tailwind v4
+   already ships `delay-150` etc. as `transition-delay`, but those don't
+   apply to CSS animations). */
+@utility animate-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@utility delay-150 {
+  animation-delay: 150ms;
+}
+@utility delay-300 {
+  animation-delay: 300ms;
+}
+@utility delay-450 {
+  animation-delay: 450ms;
+}
+@utility delay-600 {
+  animation-delay: 600ms;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* One-off utility ported from Rails — preserves the animated mask sweep used
+   in the marketing landing decoration. */
+@utility mask-glow-sweep {
+  -webkit-mask-image: linear-gradient(60deg, rgba(0, 0, 0, 0.2) 20%, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0.2) 80%);
+  mask-image: linear-gradient(60deg, rgba(0, 0, 0, 0.2) 20%, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0.2) 80%);
+  -webkit-mask-size: 300% 100%;
+  mask-size: 300% 100%;
+  animation: mask-sweep 6s linear infinite;
+}
+
+@keyframes mask-sweep {
+  0% {
+    -webkit-mask-position: 200% center;
+    mask-position: 200% center;
+  }
+  100% {
+    -webkit-mask-position: -100% center;
+    mask-position: -100% center;
+  }
+}
