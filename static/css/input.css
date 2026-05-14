@@ -49,6 +49,12 @@
            focus:outline-none dark:bg-zinc-900 dark:border-zinc-700
            dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500;
   }
+
+  .pswp__custom-caption {
+    @apply absolute bottom-4 left-1/2 max-w-[min(90vw,32rem)] -translate-x-1/2
+           rounded-full bg-zinc-950/80 px-4 py-2 text-center text-sm font-medium
+           text-white shadow-lg backdrop-blur dark:bg-white/90 dark:text-zinc-950;
+  }
 }
 
 /* Landing-page SVG line-draw animation — ported from Rails
