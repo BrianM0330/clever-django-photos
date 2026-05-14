@@ -30,10 +30,6 @@
   </a>
 
   {% block navbar %}
-    {# Ported from Rails app/views/shared/_navbar.html.erb. Lives inline in
-       base.html for now; will move to its own partial in Phase 7 when more
-       pages need to override it. Auth-gated links are stubbed with `#`
-       until Phase 4 lands login/signup routes and Phase 5 lands gallery. #}
     <nav
       aria-label="Main Navigation"
       class="bg-zinc-950 border-b border-white/5 sticky top-0 z-50"
@@ -61,18 +57,12 @@
 
           <div class="flex items-center gap-4">
             {% if user.is_authenticated %}
-              {# TODO(phase-5): swap href for the photos index URL. #}
               <a
-                href="#"
+                href="{% url 'photos:index' %}"
                 class="text-sm font-medium text-zinc-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 rounded px-2 py-1"
               >Gallery</a>
               <div class="h-5 w-px bg-white/10" aria-hidden="true"></div>
-              {% comment %}
-                TODO(phase-4): swap for a real accounts:logout POST form. Rails uses
-                button_to with method: :delete; Django needs an inline <form method="post">
-                + {% csrf_token %} to stay CSRF-safe.
-              {% endcomment %}
-              <form method="post" action="#" class="inline">
+              <form method="post" action="{% url 'accounts:logout' %}" class="inline">
                 {% csrf_token %}
                 <button
                   type="submit"
@@ -80,14 +70,12 @@
                 >Sign out</button>
               </form>
             {% else %}
-              {# TODO(phase-4): swap href for the accounts:login URL. #}
               <a
-                href="#"
+                href="{% url 'accounts:login' %}"
                 class="text-sm font-medium text-zinc-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 rounded px-2 py-1"
               >Sign in</a>
-              {# TODO(phase-4): swap href for the accounts:signup URL. #}
               <a
-                href="#"
+                href="{% url 'accounts:signup' %}"
                 class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-sm transition hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500"
               >Sign up</a>
             {% endif %}
