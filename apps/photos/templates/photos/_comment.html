@@ -1,0 +1,9 @@
+<article id="comment-{{ comment.pk }}" class="rounded-xl bg-gray-50 p-4 dark:bg-zinc-950">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ comment.user.username }}</p>
+      <p class="mt-1 text-sm text-gray-600 dark:text-zinc-300">{{ comment.body }}</p>
+    </div>
+    <time datetime="{{ comment.created_at|date:'c' }}" class="shrink-0 text-xs text-gray-400 dark:text-zinc-500">{{ comment.created_at|date:"M j" }}</time>
+  </div>
+</article>
