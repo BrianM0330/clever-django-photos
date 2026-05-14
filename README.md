@@ -126,7 +126,8 @@ defaults so the app boots with zero env vars:
 | --- | --- | --- |
 | `DJANGO_SECRET_KEY` | dev-only insecure default | **Required in production.** |
 | `DJANGO_DEBUG` | `True` | Set to `False` in production. |
-| `DJANGO_ALLOWED_HOSTS` | `*` | Comma-separated list. |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1,testserver` | Comma-separated hostnames. Set to your production domain. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | empty | Comma-separated origins, e.g. `https://gallery.example.com`. |
 | `DATABASE_URL` | `sqlite:///db.sqlite3` | Any URL that `dj-database-url` understands (Postgres, MySQL, etc.). |
 | `DJANGO_STATIC_ROOT` | `staticfiles/` | Where `collectstatic` writes. |
 | `DJANGO_MEDIA_ROOT` | `media/` | Local filesystem for uploaded photos. |
@@ -143,16 +144,66 @@ This is intentionally not Fly.io / not Docker / not Kubernetes — it's the
 simplest production setup that still does TLS, log rotation, and crash recovery
 correctly. The migration doc has a full ladder for when you outgrow it.
 
+For Cloudflare DNS, create an `A` record for the subdomain pointing at the VPS
+IPv4 address, and an `AAAA` record only if the VPS has IPv6. Start with the
+record set to **DNS only** until Caddy successfully obtains a certificate. If
+you enable the Cloudflare proxy later, use SSL/TLS mode **Full (strict)**, not
+Flexible.
+
 ### One-time server setup
 
 ```bash
 # On the VPS
-adduser --system --group --home /opt/clever clever
-apt install -y python3.12 python3.12-venv caddy
+sudo adduser --system --group --home /opt/clever clever
+sudo apt install -y python3.13 python3.13-venv caddy git sqlite3 curl make
 sudo -u clever git clone <repo> /opt/clever/app
 cd /opt/clever/app
-sudo -u clever python3.12 -m venv .venv
+sudo -u clever python3.13 -m venv .venv
+sudo -u clever .venv/bin/pip install --upgrade pip
 sudo -u clever .venv/bin/pip install -r requirements.txt
+```
+
+Install the Linux Tailwind standalone binary on the VPS. It is intentionally
+gitignored because each platform needs a different binary:
+
+```bash
+cd /opt/clever/app
+sudo -u clever mkdir -p bin
+sudo -u clever curl -L -o bin/tailwindcss \
+  https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-linux-x64
+sudo -u clever chmod +x bin/tailwindcss
+```
+
+Create `/opt/clever/app/.env`:
+
+```bash
+DJANGO_DEBUG=False
+DJANGO_SECRET_KEY=<generate-a-long-random-secret>
+DJANGO_ALLOWED_HOSTS=gallery.example.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://gallery.example.com
+DATABASE_URL=sqlite:////opt/clever/app/db.sqlite3
+DJANGO_STATIC_ROOT=/opt/clever/app/staticfiles
+DJANGO_MEDIA_ROOT=/opt/clever/app/media
+```
+
+Generate a secret with:
+
+```bash
+python3.13 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(64))
+PY
+```
+
+Bootstrap the database and static assets:
+
+```bash
+cd /opt/clever/app
+sudo -u clever .venv/bin/python manage.py check
+sudo -u clever .venv/bin/python manage.py migrate
+sudo -u clever make prod-build
+sudo -u clever .venv/bin/python manage.py seed_all
+sudo -u clever sqlite3 db.sqlite3 'PRAGMA journal_mode=WAL;'
 ```
 
 ### Per-deploy
@@ -161,8 +212,7 @@ sudo -u clever .venv/bin/pip install -r requirements.txt
 git pull
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python manage.py migrate
-bin/tailwindcss -i static/css/input.css -o static/css/app.css --minify
-.venv/bin/python manage.py collectstatic --noinput
+make prod-build
 sudo systemctl restart clever-daphne
 ```
 
@@ -207,6 +257,9 @@ Caddy handles TLS automatically via Let's Encrypt. Backups: a nightly cron
 `sqlite3 db.sqlite3 ".backup /backups/db-$(date +%F).sqlite3"` is enough for
 this scope; consider [Litestream](https://litestream.io/) → S3/B2 for
 point-in-time recovery once it matters.
+
+The deployment examples live in `deploy/clever-daphne.service` and
+`deploy/Caddyfile.example`.
 
 ## Architectural decisions
 

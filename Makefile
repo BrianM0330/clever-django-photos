@@ -1,6 +1,6 @@
 PYTHON := .venv/bin/python
 
-.PHONY: help check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup seed collectstatic
+.PHONY: help check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup seed collectstatic prod-build
 
 help:
 	@printf "Available commands:\n"
@@ -18,6 +18,7 @@ help:
 	@printf "  make db-setup       Migrate and seed the database\n"
 	@printf "  make seed           Run seed_all\n"
 	@printf "  make collectstatic  Collect static files\n"
+	@printf "  make prod-build     Build CSS and collect static files\n"
 
 check:
 	$(PYTHON) manage.py check
@@ -59,4 +60,8 @@ seed:
 	$(PYTHON) manage.py seed_all
 
 collectstatic:
+	$(PYTHON) manage.py collectstatic --noinput
+
+prod-build:
+	bin/tailwindcss -i static/css/input.css -o static/css/app.css --minify
 	$(PYTHON) manage.py collectstatic --noinput

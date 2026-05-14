@@ -11,6 +11,10 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def env_csv(name, default=""):
+    return [value.strip() for value in os.getenv(name, default).split(",") if value.strip()]
+
 # Core ----------------------------------------------------------------------
 
 SECRET_KEY = os.getenv(
@@ -18,7 +22,8 @@ SECRET_KEY = os.getenv(
     "dev-insecure-do-not-use-in-prod-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 )
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
+ALLOWED_HOSTS = env_csv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+CSRF_TRUSTED_ORIGINS = env_csv("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 # Apps & middleware ---------------------------------------------------------
 
@@ -32,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Local
     "apps.accounts",
+    "apps.analytics",
     "apps.core",
     "apps.photos",
 ]
@@ -103,10 +109,10 @@ USE_TZ = True
 # Static / media ------------------------------------------------------------
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = Path(os.getenv("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles"))
 
 MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.getenv("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
 
 # Whitenoise: compressed + manifested static files in prod.
 STORAGES = {

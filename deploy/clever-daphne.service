@@ -1,0 +1,15 @@
+[Unit]
+Description=Clever Gallery Daphne
+After=network.target
+
+[Service]
+User=clever
+Group=clever
+WorkingDirectory=/opt/clever/app
+EnvironmentFile=/opt/clever/app/.env
+ExecStart=/opt/clever/app/.venv/bin/daphne -b 127.0.0.1 -p 8000 config.asgi:application
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
