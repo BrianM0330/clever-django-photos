@@ -37,6 +37,8 @@ class LandingViewTests(TestCase):
         response = self.client.get(reverse("core:landing"))
         self.assertContains(response, "Join the network")
         self.assertContains(response, "Sign in to your gallery")
+        self.assertContains(response, f'href="{reverse("accounts:signup")}"')
+        self.assertContains(response, f'href="{reverse("accounts:login")}"')
         self.assertNotContains(response, "View the collection")
         # Navbar CTAs for anonymous visitors.
         self.assertContains(response, ">Sign in<")
@@ -50,6 +52,8 @@ class LandingViewTests(TestCase):
 
         response = self.client.get(reverse("core:landing"))
         self.assertContains(response, "View the collection")
+        self.assertContains(response, f'href="{reverse("photos:index")}"')
+        self.assertContains(response, f'action="{reverse("accounts:logout")}"')
         self.assertNotContains(response, "Join the network")
         # Navbar CTAs for authenticated users.
         self.assertContains(response, ">Gallery<")

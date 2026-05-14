@@ -24,20 +24,17 @@
           "
         >
           {% if user.is_authenticated %}
-            {# TODO(phase-5): swap href for the photos index URL once gallery routes land. #}
             <a
-              href="#"
+              href="{% url 'photos:index' %}"
               class="btn-primary text-base px-10 py-4 w-full sm:w-auto shadow-lg shadow-clever-500/20"
             >View the collection</a>
           {% else %}
-            {# TODO(phase-4): swap href for the accounts:signup URL once auth routes land. #}
             <a
-              href="#"
+              href="{% url 'accounts:signup' %}"
               class="btn-primary text-base px-8 py-3 w-full sm:w-auto shadow-lg shadow-clever-500/20"
             >Join the network</a>
-            {# TODO(phase-4): swap href for the accounts:login URL once auth routes land. #}
             <a
-              href="#"
+              href="{% url 'accounts:login' %}"
               class="text-sm font-semibold text-gray-700 hover:text-gray-950 dark:text-zinc-300 dark:hover:text-white transition rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500"
             >Sign in to your gallery</a>
           {% endif %}

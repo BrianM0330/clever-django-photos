@@ -22,6 +22,10 @@
   --color-clever-950: #122a57;
 }
 
+[x-cloak] {
+  display: none !important;
+}
+
 /* Reusable component classes — ported from Rails app/assets/tailwind/application.css */
 @layer components {
   .btn-primary {
