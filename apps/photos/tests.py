@@ -29,6 +29,28 @@ class GalleryModelTests(TestCase):
         with self.assertRaises(ValidationError):
             comment.full_clean()
 
+    def test_comment_body_cannot_be_blank(self):
+        comment = Comment(user=self.create_user(), photo=self.create_photo(), body="   ")
+
+        with self.assertRaises(ValidationError):
+            comment.full_clean()
+
+    def test_comment_body_strips_whitespace_on_save(self):
+        comment = Comment.objects.create(user=self.create_user(), photo=self.create_photo(), body="  Great shot  ")
+
+        self.assertEqual(comment.body, "Great shot")
+
+    def test_photo_dimensions_must_be_greater_than_zero(self):
+        photo = self.build_photo(width=0)
+
+        with self.assertRaises(ValidationError):
+            photo.full_clean()
+
+    def test_photo_positive_fields_are_database_constrained(self):
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                self.create_photo(width=0)
+
     def test_photo_src_large_matches_pexels_pattern(self):
         photo = self.build_photo(pexels_id=21_751_820)
 

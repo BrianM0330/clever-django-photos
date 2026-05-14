@@ -1,7 +1,8 @@
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.core.validators import MaxLengthValidator
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db import models
 
 
@@ -9,12 +10,12 @@ class Photo(models.Model):
     IMAGE_BASE_OPTIONS = {"auto": "compress", "cs": "tinysrgb"}
 
     pexels_id = models.PositiveIntegerField(unique=True)
-    width = models.PositiveIntegerField()
-    height = models.PositiveIntegerField()
+    width = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    height = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     url = models.URLField()
     photographer = models.CharField(max_length=255)
     photographer_url = models.URLField()
-    photographer_id = models.PositiveIntegerField()
+    photographer_id = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     avg_color = models.CharField(max_length=32)
     alt = models.TextField()
     likes_count = models.PositiveIntegerField(default=0)
@@ -25,6 +26,12 @@ class Photo(models.Model):
     class Meta:
         db_table = "photos"
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(pexels_id__gte=1), name="photos_pexels_id_positive"),
+            models.CheckConstraint(condition=models.Q(width__gte=1), name="photos_width_positive"),
+            models.CheckConstraint(condition=models.Q(height__gte=1), name="photos_height_positive"),
+            models.CheckConstraint(condition=models.Q(photographer_id__gte=1), name="photos_photographer_id_positive"),
+        ]
 
     def __str__(self) -> str:
         return self.alt
@@ -121,3 +128,13 @@ class Comment(models.Model):
 
     def __str__(self) -> str:
         return self.body
+
+    def clean(self) -> None:
+        super().clean()
+        self.body = self.body.strip()
+        if not self.body:
+            raise ValidationError({"body": "Comment body cannot be blank."})
+
+    def save(self, *args, **kwargs):
+        self.body = self.body.strip()
+        return super().save(*args, **kwargs)
