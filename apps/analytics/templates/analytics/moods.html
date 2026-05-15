@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Moods - Clever Real Estate{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="mb-8 flex flex-col gap-3 border-b border-gray-100 pb-6 transition-colors duration-200 dark:border-zinc-800">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-clever-600 dark:text-clever-400">Collections</p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Photo Moods</h1>
+        <p class="mt-2 text-sm text-gray-500 dark:text-zinc-400">
+          <strong>Methodology:</strong> We calculate the luminance histogram of each image. If shadows dominate (>60%), it's Dark. If highlights dominate (>60%), it's Bright. If shadows and highlights dominate but midtones don't, it's High Contrast.
+        </p>
+      </div>
+    </div>
+
+    {% if moods_data %}
+      <div x-data="photoSwipeGallery">
+        {% for mood in moods_data %}
+          <div class="mb-12">
+            <div class="flex items-center gap-4 mb-6">
+              <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">{{ mood.label }}</h2>
+              <div class="h-px bg-gray-200 dark:bg-zinc-800 flex-1"></div>
+            </div>
+            
+            <div
+              class="pswp-gallery grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8"
+              id="photos-{{ forloop.counter }}"
+            >
+              {% for photo in mood.photos %}
+                {% include "photos/_photo_card.html" with photo=photo %}
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">No moods found</h2>
+        <p class="mt-2 text-sm text-gray-500 dark:text-zinc-400">Run the analytics job to classify photo moods.</p>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

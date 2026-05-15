@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.analytics.tasks import update_user_affinities
+from apps.analytics.jobs import update_user_affinities
 
 
 class Command(BaseCommand):

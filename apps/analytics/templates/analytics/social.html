@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Social - Clever Real Estate{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="mb-8 flex flex-col gap-3 border-b border-gray-100 pb-6 transition-colors duration-200 dark:border-zinc-800">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-clever-600 dark:text-clever-400">Network</p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Your Affinities</h1>
+        <p class="mt-2 text-sm text-gray-500 dark:text-zinc-400">
+          <strong>Methodology:</strong> We calculate taste overlap by looking at the intersection of your likes and other users' likes divided by the union (Jaccard similarity). 
+          Scores range from 0.0 (no overlap) to 1.0 (perfect overlap). A score over 0.40 implies a strong aesthetic affinity.
+          This batch process runs periodically in the background.
+        </p>
+      </div>
+    </div>
+
+    {% if affinities %}
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for affinity in affinities %}
+          <div class="flex items-center gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <span class="site-nav-avatar shrink-0 h-12 w-12 text-lg">
+              {{ affinity.affinity_user.username|first|upper }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <h3 class="truncate text-base font-medium text-gray-900 dark:text-white">{{ affinity.affinity_user.username }}</h3>
+              <p class="truncate text-sm text-gray-500 dark:text-zinc-400">
+                Affinity Score: <span class="font-semibold text-clever-600 dark:text-clever-400">{{ affinity.score|floatformat:2 }}</span>
+              </p>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">No affinities found</h2>
+        <p class="mt-2 text-sm text-gray-500 dark:text-zinc-400">Like more photos to discover users with similar taste!</p>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

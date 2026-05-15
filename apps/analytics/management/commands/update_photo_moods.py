@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.analytics.tasks import update_photo_moods
+from apps.analytics.jobs import update_photo_moods
 
 
 class Command(BaseCommand):

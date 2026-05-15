@@ -1,47 +1,26 @@
-from collections.abc import Iterable
 from contextlib import contextmanager
 from io import BytesIO
-from pathlib import Path
-from urllib.parse import urlparse
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
-import pandas as pd
 from PIL import Image, ImageFilter
 
 
 @contextmanager
-def open_image(image_source):
-    if hasattr(image_source, "read"):
-        image = Image.open(image_source)
-        try:
-            yield image
-        finally:
-            image.close()
-        return
+def open_pexels_image(url: str):
+    request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urlopen(request, timeout=30) as response:  # noqa: S310
+        data = response.read()
 
-    source = str(image_source)
-    parsed = urlparse(source)
-
-    if parsed.scheme in {"http", "https"}:
-        with urlopen(source, timeout=30) as response:  # noqa: S310
-            data = response.read()
-        with Image.open(BytesIO(data)) as image:
-            yield image
-        return
-
-    with Image.open(Path(source)) as image:
+    with Image.open(BytesIO(data)) as image:
         yield image
 
 
-def compute_jaccard_affinities(like_rows: Iterable[dict], *, min_overlap: int = 3, threshold: float = 0.4):
-    df = pd.DataFrame(list(like_rows))
-    if df.empty:
-        return []
+def compute_jaccard_affinities(like_rows, *, min_overlap: int = 3, threshold: float = 0.4):
+    user_likes = {}
+    for row in like_rows:
+        user_likes.setdefault(row["user_id"], set()).add(row["photo_id"])
 
-    df = df.drop_duplicates(subset=["user_id", "photo_id"])
-    user_likes = df.groupby("user_id")["photo_id"].apply(set).to_dict()
     users = sorted(user_likes)
-
     results: list[tuple[int, int, float]] = []
 
     for index, user_id in enumerate(users):
@@ -52,11 +31,7 @@ def compute_jaccard_affinities(like_rows: Iterable[dict], *, min_overlap: int = 
             if overlap_count < min_overlap:
                 continue
 
-            union_count = len(first_likes | second_likes)
-            if union_count == 0:
-                continue
-
-            score = overlap_count / union_count
+            score = overlap_count / len(first_likes | second_likes)
             if score < threshold:
                 continue
 
@@ -66,8 +41,8 @@ def compute_jaccard_affinities(like_rows: Iterable[dict], *, min_overlap: int = 
     return sorted(results, key=lambda row: (-row[2], row[0], row[1]))
 
 
-def detect_mood(image_source) -> str:
-    with open_image(image_source) as image:
+def detect_mood(image_url: str) -> str:
+    with open_pexels_image(image_url) as image:
         histogram = image.convert("L").histogram()
 
     total_pixels = sum(histogram)
@@ -87,8 +62,8 @@ def detect_mood(image_source) -> str:
     return "NEUTRAL"
 
 
-def score_rule_of_thirds(image_source, *, size: tuple[int, int] = (300, 300), zone_radius: int = 10) -> int:
-    with open_image(image_source) as image:
+def score_rule_of_thirds(image_url: str, *, size: tuple[int, int] = (300, 300), zone_radius: int = 10) -> int:
+    with open_pexels_image(image_url) as image:
         edge_map = image.convert("L").resize(size).filter(ImageFilter.FIND_EDGES)
 
     total_edges = sum(edge_map.getdata())

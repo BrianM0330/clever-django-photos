@@ -2,14 +2,24 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxLengthValidator, MinValueValidator
+from django.core.validators import MaxLengthValidator, MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 
 
 class Photo(models.Model):
     IMAGE_BASE_OPTIONS = {"auto": "compress", "cs": "tinysrgb"}
+    MOOD_DARK = "DARK"
+    MOOD_BRIGHT = "BRIGHT"
+    MOOD_CONTRAST = "CONTRAST"
+    MOOD_NEUTRAL = "NEUTRAL"
+    MOOD_CHOICES = [
+        (MOOD_DARK, "Dark & Moody"),
+        (MOOD_BRIGHT, "Bright & Airy"),
+        (MOOD_CONTRAST, "High Contrast"),
+        (MOOD_NEUTRAL, "Neutral"),
+    ]
 
-    pexels_id = models.PositiveIntegerField(unique=True)
+    pexels_id = models.PositiveIntegerField(unique=True, validators=[MinValueValidator(1)])
     width = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     height = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     url = models.URLField()
@@ -18,6 +28,12 @@ class Photo(models.Model):
     photographer_id = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     avg_color = models.CharField(max_length=32)
     alt = models.TextField()
+    mood = models.CharField(max_length=10, choices=MOOD_CHOICES, null=True, blank=True)
+    composition_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+    )
     likes_count = models.PositiveIntegerField(default=0)
     comments_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -31,6 +47,14 @@ class Photo(models.Model):
             models.CheckConstraint(condition=models.Q(width__gte=1), name="photos_width_positive"),
             models.CheckConstraint(condition=models.Q(height__gte=1), name="photos_height_positive"),
             models.CheckConstraint(condition=models.Q(photographer_id__gte=1), name="photos_photographer_id_positive"),
+            models.CheckConstraint(
+                condition=models.Q(composition_score__isnull=True) | models.Q(composition_score__gte=1),
+                name="photos_composition_score_min",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(composition_score__isnull=True) | models.Q(composition_score__lte=10),
+                name="photos_composition_score_max",
+            ),
         ]
 
     def __str__(self) -> str:

@@ -3,7 +3,7 @@ DEPLOY_HOST ?= clever-vps
 DEPLOY_PATH ?= /opt/clever/app
 DEPLOY_SERVICE ?= clever-daphne
 
-.PHONY: help check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup seed collectstatic prod-build redeploy
+.PHONY: help check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup db-analytics seed collectstatic prod-build redeploy
 
 help:
 	@printf "Available commands:\n"
@@ -19,6 +19,7 @@ help:
 	@printf "  make db-migrate     Apply Django migrations\n"
 	@printf "  make db-reset       Delete SQLite DB and migrate\n"
 	@printf "  make db-setup       Migrate and seed the database\n"
+	@printf "  make db-analytics   Run analytics jobs\n"
 	@printf "  make seed           Run seed_all\n"
 	@printf "  make collectstatic  Collect static files\n"
 	@printf "  make prod-build     Build CSS and collect static files\n"
@@ -59,6 +60,11 @@ db-reset:
 db-setup:
 	$(PYTHON) manage.py migrate
 	$(PYTHON) manage.py seed_all
+
+db-analytics:
+	$(PYTHON) manage.py update_user_affinities
+	$(PYTHON) manage.py update_photo_moods --only-missing
+	$(PYTHON) manage.py update_photo_composition_scores --only-missing
 
 seed:
 	$(PYTHON) manage.py seed_all

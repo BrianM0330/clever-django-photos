@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.analytics.tasks import update_photo_composition_scores
+from apps.analytics.jobs import update_photo_composition_scores
 
 
 class Command(BaseCommand):
