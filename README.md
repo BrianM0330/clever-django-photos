@@ -186,7 +186,7 @@ DJANGO_DEBUG=False
 DJANGO_SECRET_KEY=<generate-a-long-random-secret>
 DJANGO_ALLOWED_HOSTS=gallery.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://gallery.example.com
-DATABASE_URL=sqlite:////opt/clever/app/db.sqlite3
+DATABASE_URL=sqlite:////var/lib/clever/db.sqlite3
 DJANGO_STATIC_ROOT=/opt/clever/app/staticfiles
 DJANGO_MEDIA_ROOT=/opt/clever/app/media
 ```
@@ -208,7 +208,7 @@ sudo -u clever .venv/bin/python manage.py check
 sudo -u clever .venv/bin/python manage.py migrate
 sudo -u clever bash -lc 'set -a && . ./.env && set +a && make prod-build'
 sudo -u clever .venv/bin/python manage.py seed_all
-sudo -u clever sqlite3 db.sqlite3 'PRAGMA journal_mode=WAL;'
+sudo -u clever sqlite3 /var/lib/clever/db.sqlite3 'PRAGMA journal_mode=WAL;'
 ```
 
 Manual production commands must load `.env`; `systemd` does this automatically through `EnvironmentFile`, but an SSH shell does not.
@@ -216,9 +216,9 @@ Manual production commands must load `.env`; `systemd` does this automatically t
 ### Per-deploy
 
 ```bash
-git pull
-.venv/bin/pip install -r requirements.txt
-bash -lc 'set -a && . ./.env && set +a && .venv/bin/python manage.py check && .venv/bin/python manage.py migrate && make prod-build'
+sudo -u clever git pull
+sudo -u clever .venv/bin/pip install -r requirements.txt
+sudo -u clever bash -lc 'set -a && . ./.env && set +a && .venv/bin/python manage.py check && .venv/bin/python manage.py migrate && make prod-build'
 sudo systemctl restart clever-daphne
 ```
 
@@ -232,6 +232,7 @@ After=network.target
 [Service]
 User=clever
 Group=clever
+StateDirectory=clever
 WorkingDirectory=/opt/clever/app
 EnvironmentFile=/opt/clever/app/.env
 ExecStart=/opt/clever/app/.venv/bin/daphne \
@@ -260,7 +261,7 @@ gallery.example.com {
 ```
 
 Caddy handles TLS automatically via Let's Encrypt. Backups: a nightly cron
-`sqlite3 db.sqlite3 ".backup /backups/db-$(date +%F).sqlite3"` is enough for
+`sqlite3 /var/lib/clever/db.sqlite3 ".backup /backups/db-$(date +%F).sqlite3"` is enough for
 this scope; consider [Litestream](https://litestream.io/) → S3/B2 for
 point-in-time recovery once it matters.
 
