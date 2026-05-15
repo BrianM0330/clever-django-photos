@@ -1,0 +1,9 @@
+<div hx-swap-oob="beforeend:#toast-region">
+  <a href="{{ url }}" class="toast-card animate-toast-in" x-data
+    x-init="setTimeout(() => $el.classList.add('toast-leave'), 2000); setTimeout(() => $el.remove(), 2500)">
+    <span class="toast-copy">
+      <span class=" toast-title">{{ message }}</span>
+      <span class="toast-subtitle">Open photo</span>
+    </span>
+  </a>
+</div>

@@ -19,6 +19,10 @@ class AuthFlowTests(TestCase):
         self.assertContains(response, f'href="{reverse("accounts:signup")}"')
         self.assertContains(response, 'name="username"')
         self.assertContains(response, 'name="password"')
+        self.assertNotContains(response, ">Discover<")
+        self.assertNotContains(response, ">Photos<")
+        self.assertNotContains(response, ">Moods<")
+        self.assertNotContains(response, ">Social<")
 
     def test_signup_page_renders_login_link_and_form(self):
         response = self.client.get(reverse("accounts:signup"))

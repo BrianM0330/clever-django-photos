@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.css">
 
-  <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/htmx-ext-ws@2.0.4"></script>
   <script defer src="https://unpkg.com/alpinejs@3.15.0/dist/cdn.min.js"></script>
 
@@ -22,6 +22,7 @@
 <body
   class="bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 antialiased font-sans flex flex-col min-h-screen transition-colors duration-200"
   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+  hx-ext="ws"
 >
   <a
     href="#main-content"
@@ -36,12 +37,12 @@
       class="bg-zinc-950 border-b border-white/5 sticky top-0 z-50"
     >
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="flex h-16 justify-between items-center">
-          <div class="flex items-center">
+        <div class="relative flex h-16 items-center justify-between gap-3">
+          <div class="site-nav-logo">
             <a
               href="{% url 'core:landing' %}"
-              class="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 rounded-md p-1 -ml-1"
-              aria-label="Clever Photos Home"
+              class="flex items-center group focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 rounded-md p-1 -ml-1"
+              aria-label="Clever Home"
             >
               <img
                 src="https://start.listwithclever.com/wp-content/uploads/2024/03/clever-logo-white.png"
@@ -49,35 +50,54 @@
                 aria-hidden="true"
                 class="h-6 w-auto object-contain transition-transform group-hover:scale-105"
               />
-              <div class="h-5 w-px bg-white/10" aria-hidden="true"></div>
-              <span
-                class="text-xl font-medium tracking-tight text-white/90 group-hover:text-white transition leading-none mt-0.5"
-              >Photos</span>
             </a>
           </div>
 
-          <div class="flex items-center gap-4">
-            {% if user.is_authenticated %}
+          {% if request.resolver_match.url_name != "landing" and request.resolver_match.url_name != "login" and request.resolver_match.url_name != "logout" %}
+            <div class="site-nav-links">
+              <a
+                href="{% url 'analytics:discover' %}"
+                class="rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 {% if request.resolver_match.app_name == 'analytics' and request.resolver_match.url_name == 'discover' %}font-semibold text-clever-400{% else %}font-light text-zinc-400 hover:text-white{% endif %}"
+              >Discover</a>
               <a
                 href="{% url 'photos:index' %}"
-                class="text-sm font-medium text-zinc-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 rounded px-2 py-1"
-              >Gallery</a>
-              <div class="h-5 w-px bg-white/10" aria-hidden="true"></div>
+                class="rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 {% if request.resolver_match.app_name == 'photos' and request.resolver_match.url_name == 'index' %}font-semibold text-clever-400{% else %}font-light text-zinc-400 hover:text-white{% endif %}"
+              >Photos</a>
+              <a
+                href="{% url 'analytics:moods' %}"
+                class="rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 {% if request.resolver_match.app_name == 'analytics' and request.resolver_match.url_name == 'moods' %}font-semibold text-clever-400{% else %}font-light text-zinc-400 hover:text-white{% endif %}"
+              >Moods</a>
+              <a
+                href="{% url 'analytics:social' %}"
+                class="rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 {% if request.resolver_match.app_name == 'analytics' and request.resolver_match.url_name == 'social' %}font-semibold text-clever-400{% else %}font-light text-zinc-400 hover:text-white{% endif %}"
+              >Social</a>
+            </div>
+          {% else %}
+            <div aria-hidden="true"></div>
+          {% endif %}
+
+          <div class="site-nav-account">
+            {% if user.is_authenticated %}
+              <abbr
+                class="site-nav-avatar"
+                title="Signed in as {{ user.username }}"
+                aria-label="Signed in as {{ user.username }}"
+              >{{ user.username|first|upper }}</abbr>
               <form method="post" action="{% url 'accounts:logout' %}" class="inline">
                 {% csrf_token %}
                 <button
                   type="submit"
-                  class="text-sm font-medium text-zinc-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 rounded px-2 py-1"
+                  class="cursor-pointer rounded px-1 py-0.5 text-xs font-light text-zinc-500 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500"
                 >Sign out</button>
               </form>
             {% else %}
               <a
                 href="{% url 'accounts:login' %}"
-                class="text-sm font-medium text-zinc-400 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 rounded px-2 py-1"
+                class="rounded px-1 py-0.5 text-xs font-medium text-zinc-300 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500"
               >Sign in</a>
               <a
                 href="{% url 'accounts:signup' %}"
-                class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-950 shadow-sm transition hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500"
+                class="rounded px-1 py-0.5 text-xs font-light text-zinc-500 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500"
               >Sign up</a>
             {% endif %}
           </div>
@@ -99,6 +119,17 @@
   <main id="main-content" class="flex-1 focus:outline-none" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
+
+  {% if user.is_authenticated %}
+    <div ws-connect="/ws/photos/likes/">
+      <div
+        id="toast-region"
+        class="toast-region"
+        aria-live="polite"
+        aria-atomic="false"
+      ></div>
+    </div>
+  {% endif %}
 
   <footer class="bg-white dark:bg-zinc-950 border-t border-gray-100 dark:border-zinc-900 py-8 mt-auto transition-colors duration-200">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-500 dark:text-zinc-500">

@@ -31,7 +31,7 @@ class LandingViewTests(TestCase):
         body = response.content.decode()
         self.assertIn("/static/css/app.css", body)
         self.assertIn("alpinejs", body)
-        self.assertIn("https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js", body)
+        self.assertIn("https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js", body)
         self.assertIn("https://cdn.jsdelivr.net/npm/htmx-ext-ws@2.0.4", body)
         self.assertIn("X-CSRFToken", body)
 
@@ -48,6 +48,17 @@ class LandingViewTests(TestCase):
         self.assertIn("toggle()", body)
         self.assertIn("this.liked = !this.liked", body)
 
+    def test_toast_css_is_themed_and_positioned(self) -> None:
+        css_path = finders.find("css/app.css")
+        self.assertIsNotNone(css_path)
+
+        with open(css_path) as css_file:
+            css = css_file.read()
+
+        self.assertIn(".toast-region", css)
+        self.assertIn("position: fixed", css)
+        self.assertIn(".toast-card", css)
+
     def test_landing_anonymous_shows_signup_and_signin_ctas(self) -> None:
         response = self.client.get(reverse("core:landing"))
         self.assertContains(response, "Join the network")
@@ -59,6 +70,10 @@ class LandingViewTests(TestCase):
         self.assertContains(response, ">Sign in<")
         self.assertContains(response, ">Sign up<")
         self.assertNotContains(response, ">Sign out<")
+        self.assertNotContains(response, ">Discover<")
+        self.assertNotContains(response, ">Photos<")
+        self.assertNotContains(response, ">Moods<")
+        self.assertNotContains(response, ">Social<")
 
     def test_landing_authenticated_shows_gallery_cta(self) -> None:
         User = get_user_model()
@@ -71,9 +86,13 @@ class LandingViewTests(TestCase):
         self.assertContains(response, f'action="{reverse("accounts:logout")}"')
         self.assertNotContains(response, "Join the network")
         # Navbar CTAs for authenticated users.
-        self.assertContains(response, ">Gallery<")
+        self.assertContains(response, ">B</abbr>")
         self.assertContains(response, ">Sign out<")
         self.assertNotContains(response, ">Sign in<")
+        self.assertNotContains(response, ">Discover<")
+        self.assertNotContains(response, ">Photos<")
+        self.assertNotContains(response, ">Moods<")
+        self.assertNotContains(response, ">Social<")
 
     def test_landing_includes_hero_illustration_and_animation_hooks(self) -> None:
         """Catches regressions where the SVG illustration or its animation

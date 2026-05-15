@@ -19,7 +19,7 @@ from django.utils.html import escape
 
 from apps.photos.consumers import PhotoLikesConsumer
 from apps.photos.models import Comment, Like, Photo
-from apps.photos.realtime import photo_likes_group_name
+from apps.photos.realtime import PHOTO_LIKES_GROUP_NAME
 
 
 class GalleryModelTests(TestCase):
@@ -222,16 +222,6 @@ class GalleryModelTests(TestCase):
 
 
 class RealtimeLikeTests(TransactionTestCase):
-    def test_authenticated_socket_receives_initial_like_count(self):
-        user = self.create_user()
-        photo = self.create_photo(likes_count=2)
-
-        message = async_to_sync(self.receive_initial_message)(user, photo)
-
-        self.assertIn(f'id="photo-{photo.pk}-like_count"', message)
-        self.assertIn('hx-swap-oob="true"', message)
-        self.assertIn(">2</span>", message)
-
     def test_anonymous_socket_is_rejected(self):
         photo = self.create_photo()
 
@@ -249,6 +239,30 @@ class RealtimeLikeTests(TransactionTestCase):
         self.assertIn('hx-swap-oob="true"', message)
         self.assertIn(">4</span>", message)
 
+    def test_socket_receives_like_toast_for_other_user_like(self):
+        observer = self.create_user(username="brian")
+        actor = self.create_user(username="ryan")
+        photo = self.create_photo(likes_count=1)
+
+        message = async_to_sync(self.receive_broadcast_message)(observer, photo, likes_count=2, liked_by=actor)
+
+        self.assertIn(f'id="photo-{photo.pk}-like_count"', message)
+        self.assertIn('hx-swap-oob="beforeend:#toast-region"', message)
+        self.assertIn("ryan liked a pic!", message)
+        self.assertIn("toast-leave", message)
+        self.assertIn("setTimeout(() => $el.remove(), 2000)", message)
+        self.assertIn(reverse("photos:detail", kwargs={"pk": photo.pk}), message)
+
+    def test_socket_suppresses_like_toast_for_current_user_like(self):
+        actor = self.create_user(username="brian")
+        photo = self.create_photo(likes_count=1)
+
+        message = async_to_sync(self.receive_broadcast_message)(actor, photo, likes_count=2, liked_by=actor)
+
+        self.assertIn(f'id="photo-{photo.pk}-like_count"', message)
+        self.assertNotIn("liked a pic!", message)
+        self.assertNotIn('hx-swap-oob="beforeend:#toast-region"', message)
+
     def test_observer_who_liked_receives_other_user_like_increment(self):
         observer = self.create_user(username="brian")
         actor = self.create_user(username="ryan")
@@ -263,7 +277,7 @@ class RealtimeLikeTests(TransactionTestCase):
         )
         photo.refresh_from_db()
 
-        self.assertEqual(messages, [1, 2])
+        self.assertEqual(messages, [2])
         self.assertTrue(Like.objects.filter(user=observer, photo=photo).exists())
         self.assertTrue(Like.objects.filter(user=actor, photo=photo).exists())
         self.assertEqual(photo.likes_count, 2)
@@ -283,7 +297,7 @@ class RealtimeLikeTests(TransactionTestCase):
         )
         photo.refresh_from_db()
 
-        self.assertEqual(messages, [2, 1])
+        self.assertEqual(messages, [1])
         self.assertTrue(Like.objects.filter(user=observer, photo=photo).exists())
         self.assertFalse(Like.objects.filter(user=actor, photo=photo).exists())
         self.assertEqual(photo.likes_count, 1)
@@ -302,18 +316,10 @@ class RealtimeLikeTests(TransactionTestCase):
         )
         photo.refresh_from_db()
 
-        self.assertEqual(messages, [1, 2, 1])
+        self.assertEqual(messages, [2, 1])
         self.assertTrue(Like.objects.filter(user=observer, photo=photo).exists())
         self.assertFalse(Like.objects.filter(user=actor, photo=photo).exists())
         self.assertEqual(photo.likes_count, 1)
-
-    async def receive_initial_message(self, user, photo):
-        communicator = self.communicator_for(user, photo)
-        connected, _ = await communicator.connect()
-        self.assertTrue(connected)
-        message = await communicator.receive_from()
-        await communicator.disconnect()
-        return message
 
     async def connect_anonymous(self, photo):
         communicator = self.communicator_for(AnonymousUser(), photo)
@@ -321,20 +327,21 @@ class RealtimeLikeTests(TransactionTestCase):
         await communicator.disconnect()
         return connected
 
-    async def receive_broadcast_message(self, user, photo, *, likes_count):
+    async def receive_broadcast_message(self, user, photo, *, likes_count, liked_by=None):
         communicator = self.communicator_for(user, photo)
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
-        await communicator.receive_from()
 
-        await get_channel_layer().group_send(
-            photo_likes_group_name(photo.pk),
-            {
-                "type": "photo.like_count",
-                "photo_id": photo.pk,
-                "likes_count": likes_count,
-            },
-        )
+        event = {
+            "type": "photo.like_count",
+            "photo_id": photo.pk,
+            "likes_count": likes_count,
+        }
+        if liked_by is not None:
+            event["liked_by_user_id"] = liked_by.pk
+            event["liked_by_username"] = liked_by.username
+
+        await get_channel_layer().group_send(PHOTO_LIKES_GROUP_NAME, event)
         message = await communicator.receive_from()
         await communicator.disconnect()
         return message
@@ -344,7 +351,7 @@ class RealtimeLikeTests(TransactionTestCase):
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
 
-        messages = [self.extract_like_count(await communicator.receive_from())]
+        messages = []
         for method, actor in actions:
             response_status = await self.perform_like_request(method, actor, photo)
             self.assertEqual(response_status, 200)
@@ -367,9 +374,9 @@ class RealtimeLikeTests(TransactionTestCase):
         return response.status_code
 
     def communicator_for(self, user, photo):
-        communicator = WebsocketCommunicator(PhotoLikesConsumer.as_asgi(), f"/ws/photos/{photo.pk}/likes/")
+        communicator = WebsocketCommunicator(PhotoLikesConsumer.as_asgi(), "/ws/photos/likes/")
         communicator.scope["user"] = user
-        communicator.scope["url_route"] = {"kwargs": {"photo_id": photo.pk}}
+        communicator.scope["url_route"] = {"kwargs": {}}
         return communicator
 
     def extract_like_count(self, html):
@@ -559,7 +566,7 @@ class GalleryViewTests(TestCase):
         self.assertContains(response, 'sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"')
         self.assertContains(response, "x-data=\"likeButton({ liked:")
         self.assertContains(response, 'hx-ext="ws"')
-        self.assertContains(response, 'ws-connect="/ws/photos/')
+        self.assertContains(response, 'ws-connect="/ws/photos/likes/"')
         self.assertContains(response, '@submit="toggle()"')
         self.assertContains(response, "like_count")
         self.assertContains(response, 'class="relative aspect-square overflow-hidden rounded-2xl')
@@ -568,6 +575,33 @@ class GalleryViewTests(TestCase):
         self.assertContains(response, second.photographer)
         self.assertEqual(list(response.context["photos"]), [first, second])
         self.assertEqual(response.context["liked_photo_ids"], {second.pk})
+
+    def test_photo_index_renders_section_nav_with_active_route(self):
+        """The sub-nav is rendered with the 'Photos' route active."""
+        user = self.create_user()
+        self.client.force_login(user)
+        response = self.client.get(reverse("photos:index"))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertContains(response, f'href="{reverse("analytics:discover")}"')
+        self.assertContains(response, f'href="{reverse("photos:index")}"')
+        self.assertContains(response, f'href="{reverse("analytics:moods")}"')
+        self.assertContains(response, f'href="{reverse("analytics:social")}"')
+
+        # Check for active class on 'photos:index' link in the rendered template
+        # We look for the exact string of the link with the active class
+        self.assertContains(response, 'font-semibold text-clever-400')
+
+    def test_photo_index_renders_gallery(self):
+        user = self.create_user()
+        photo = self.create_photo()
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("photos:index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "photos/photo_list.html")
+        self.assertContains(response, f'id="photo-{photo.pk}"')
 
     def test_photo_detail_renders_photo_like_button_and_source_controls(self):
         user = self.create_user()
@@ -628,6 +662,33 @@ class GalleryViewTests(TestCase):
         broadcast_photo = broadcast.call_args.args[0]
         self.assertEqual(broadcast_photo.pk, photo.pk)
         self.assertEqual(broadcast_photo.likes_count, 1)
+        self.assertEqual(broadcast.call_args.kwargs, {"liked_by": user})
+
+    def test_idempotent_like_post_does_not_broadcast_toast_actor(self):
+        user = self.create_user()
+        photo = self.create_photo()
+        Like.objects.create(user=user, photo=photo)
+        self.client.force_login(user)
+
+        with patch("apps.photos.views.broadcast_photo_like_count") as broadcast:
+            response = self.client.post(reverse("photos:like_toggle", kwargs={"pk": photo.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        broadcast.assert_called_once()
+        self.assertEqual(broadcast.call_args.kwargs, {"liked_by": None})
+
+    def test_unlike_delete_does_not_broadcast_toast_actor(self):
+        user = self.create_user()
+        photo = self.create_photo()
+        Like.objects.create(user=user, photo=photo)
+        self.client.force_login(user)
+
+        with patch("apps.photos.views.broadcast_photo_like_count") as broadcast:
+            response = self.client.delete(reverse("photos:like_toggle", kwargs={"pk": photo.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        broadcast.assert_called_once()
+        self.assertEqual(broadcast.call_args.kwargs, {"liked_by": None})
 
     def test_like_post_missing_photo_returns_404(self):
         self.client.force_login(self.create_user())

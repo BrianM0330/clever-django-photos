@@ -53,18 +53,18 @@ class LikeToggleView(LoginRequiredMixin, View):
             Like.delete_for(user=request.user, photo=photo)
             return self.render_response(request, photo, liked=False)
 
-        Like.create_for(user=request.user, photo=photo)
-        return self.render_response(request, photo, liked=True)
+        _like, created = Like.create_for(user=request.user, photo=photo)
+        return self.render_response(request, photo, liked=True, liked_by=request.user if created else None)
 
     def delete(self, request, pk):
         photo = get_object_or_404(Photo, pk=pk)
         Like.delete_for(user=request.user, photo=photo)
         return self.render_response(request, photo, liked=False)
 
-    def render_response(self, request, photo, *, liked: bool):
+    def render_response(self, request, photo, *, liked: bool, liked_by=None):
         photo.refresh_from_db(fields=["likes_count"])
         photo.liked_by_current_user = liked
-        broadcast_photo_like_count(photo)
+        broadcast_photo_like_count(photo, liked_by=liked_by)
         if request.headers.get("HX-Request"):
             return render(request, "photos/_like_button.html", {"photo": photo, "liked": liked})
 

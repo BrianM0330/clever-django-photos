@@ -1,7 +1,5 @@
 <div id="photo-{{ photo.pk }}-like"
-     x-data="likeButton({ liked: {{ photo.liked_by_current_user|yesno:'true,false' }} })"
-     hx-ext="ws"
-     ws-connect="/ws/photos/{{ photo.pk }}/likes/">
+     x-data="likeButton({ liked: {{ photo.liked_by_current_user|yesno:'true,false' }} })">
   <form method="post"
         action="{% url 'photos:like_toggle' photo.pk %}"
         class="inline"
