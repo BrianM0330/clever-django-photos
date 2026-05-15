@@ -29,7 +29,7 @@ class DiscoverView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class MoodsView(TemplateView):
+class MoodsView(LoginRequiredMixin, TemplateView):
     template_name = "analytics/moods.html"
 
     def get_context_data(self, **kwargs):
