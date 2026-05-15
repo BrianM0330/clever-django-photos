@@ -1,4 +1,4 @@
-{% load static %}
+{% load photo_tags static %}
 
 <article id="photo-{{ photo.pk }}" class="group">
   <div class="relative aspect-square overflow-hidden rounded-2xl border border-gray-100 bg-gray-100 shadow-sm transition duration-300 group-hover:-translate-y-0.5 group-hover:shadow-xl dark:border-zinc-800 dark:bg-zinc-900" style="background-color: {{ photo.avg_color }}">
@@ -7,9 +7,14 @@
        aria-label="Open {{ photo.alt }}"
        data-pswp-width="{{ photo.width }}"
        data-pswp-height="{{ photo.height }}"
-       data-pswp-srcset="{{ photo.src_medium }} 350w, {{ photo.src_large }} 940w, {{ photo.src_large2x }} 1880w"
+       data-pswp-srcset="{% photo_srcset photo %}"
        data-pswp-caption="By {{ photo.photographer }}">
-      <img src="{{ photo.src_medium }}" alt="{{ photo.alt }}" class="h-full w-full object-cover" loading="lazy">
+      <img src="{{ photo.src_medium }}"
+           srcset="{% photo_srcset photo %}"
+           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+           alt="{{ photo.alt }}"
+           class="h-full w-full object-cover"
+           loading="lazy">
     </a>
 
     <div class="absolute right-3 top-3 z-10">

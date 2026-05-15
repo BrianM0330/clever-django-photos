@@ -3,6 +3,7 @@ from pathlib import Path
 from django import template
 from django.conf import settings
 from django.utils.html import conditional_escape, format_html
+from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 
 register = template.Library()
@@ -32,3 +33,8 @@ def inline_svg(filename, css_class="", aria_hidden=True, data_icon=""):
 def pluralize_count(count, singular, plural=""):
     label = plural or f"{singular}s"
     return format_html("{} {}", count, singular if count == 1 else label)
+
+
+@register.simple_tag
+def photo_srcset(photo):
+    return format_html_join(", ", "{} {}", photo.srcset.items())

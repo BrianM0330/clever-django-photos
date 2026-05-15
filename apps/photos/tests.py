@@ -15,6 +15,7 @@ from django.db import IntegrityError, OperationalError, close_old_connections, t
 from django.db.models import Sum
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
+from django.utils.html import escape
 
 from apps.photos.consumers import PhotoLikesConsumer
 from apps.photos.models import Comment, Like, Photo
@@ -552,7 +553,10 @@ class GalleryViewTests(TestCase):
         self.assertContains(response, f'id="photo-{first.pk}"')
         self.assertContains(response, f'id="photo-{second.pk}-like"')
         self.assertContains(response, 'x-data="photoSwipeGallery"')
-        self.assertContains(response, 'data-pswp-srcset=')
+        self.assertContains(response, f'src="{escape(first.src_medium)}"')
+        self.assertContains(response, f'srcset="{escape(self.expected_srcset(first))}"')
+        self.assertContains(response, f'data-pswp-srcset="{escape(self.expected_srcset(first))}"')
+        self.assertContains(response, 'sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"')
         self.assertContains(response, "x-data=\"likeButton({ liked:")
         self.assertContains(response, 'hx-ext="ws"')
         self.assertContains(response, 'ws-connect="/ws/photos/')
@@ -576,6 +580,9 @@ class GalleryViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "photos/photo_detail.html")
         self.assertContains(response, photo.alt)
+        self.assertContains(response, f'src="{escape(photo.src_large)}"')
+        self.assertContains(response, f'srcset="{escape(self.expected_srcset(photo))}"')
+        self.assertContains(response, 'sizes="(min-width: 1024px) 64rem, 100vw"')
         self.assertContains(response, "Back to gallery")
         self.assertContains(response, "Copy source URL")
         self.assertContains(response, 'x-data="copySource"')
@@ -855,3 +862,6 @@ class GalleryViewTests(TestCase):
         photo = self.build_photo(**attributes)
         photo.save()
         return photo
+
+    def expected_srcset(self, photo):
+        return ", ".join(f"{url} {descriptor}" for url, descriptor in photo.srcset.items())
