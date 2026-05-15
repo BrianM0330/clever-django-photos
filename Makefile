@@ -67,8 +67,8 @@ collectstatic:
 	$(PYTHON) manage.py collectstatic --noinput
 
 prod-build:
-	bin/tailwindcss -i static/css/input.css -o static/css/app.css --minify
+	bin/tailwindcss -i assets/css/input.css -o static/css/app.css --minify
 	$(PYTHON) manage.py collectstatic --noinput
 
 redeploy:
-	ssh $(DEPLOY_HOST) "cd $(DEPLOY_PATH) && sudo -u clever git pull && sudo -u clever .venv/bin/pip install -r requirements.txt && sudo -u clever .venv/bin/python manage.py check && sudo -u clever .venv/bin/python manage.py migrate && sudo -u clever make prod-build && sudo systemctl restart $(DEPLOY_SERVICE) && sudo systemctl status $(DEPLOY_SERVICE) --no-pager"
+	ssh $(DEPLOY_HOST) "cd $(DEPLOY_PATH) && sudo -u clever git pull && sudo -u clever .venv/bin/pip install -r requirements.txt && sudo -u clever bash -lc 'cd $(DEPLOY_PATH) && set -a && . ./.env && set +a && .venv/bin/python manage.py check && .venv/bin/python manage.py migrate && make prod-build' && sudo systemctl restart $(DEPLOY_SERVICE) && sudo systemctl status $(DEPLOY_SERVICE) --no-pager"

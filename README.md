@@ -69,7 +69,7 @@ If you'd rather run them separately (clearer Tailwind error output):
 
 ```bash
 # Terminal 1 — Tailwind watcher
-bin/tailwindcss -i static/css/input.css -o static/css/app.css --watch
+bin/tailwindcss -i assets/css/input.css -o static/css/app.css --watch
 
 # Terminal 2 — Django ASGI + WebSockets
 daphne -b 127.0.0.1 -p 8000 config.asgi:application
@@ -78,7 +78,7 @@ daphne -b 127.0.0.1 -p 8000 config.asgi:application
 For a one-shot production-style build (no watcher):
 
 ```bash
-bin/tailwindcss -i static/css/input.css -o static/css/app.css --minify
+bin/tailwindcss -i assets/css/input.css -o static/css/app.css --minify
 ```
 
 ### Tests
@@ -135,20 +135,22 @@ defaults so the app boots with zero env vars:
 When `DEBUG=False` the settings module flips on `SECURE_*` headers, HSTS, and
 the manifest-static storage backend (cache-busting hashed filenames).
 
-## Deployment
+## [Deploy To VPS]
 
-Target: a single small VPS (Hetzner CX22 or DigitalOcean $6 droplet) running
+Target: a single small VPS such as a Hetzner CX22 or DigitalOcean basic droplet running
 **Caddy → Daphne → Django ASGI** with **systemd** supervising the process.
 
 This is intentionally not Fly.io / not Docker / not Kubernetes — it's the
 simplest production setup that still does TLS, log rotation, and crash recovery
 correctly. The migration doc has a full ladder for when you outgrow it.
 
-For Cloudflare DNS, create an `A` record for the subdomain pointing at the VPS
-IPv4 address, and an `AAAA` record only if the VPS has IPv6. Start with the
-record set to **DNS only** until Caddy successfully obtains a certificate. If
-you enable the Cloudflare proxy later, use SSL/TLS mode **Full (strict)**, not
-Flexible.
+Assumptions below:
+- App user: `clever`
+- App path: `/opt/clever/app`
+- Domain: `gallery.example.com`
+- Internal app port: `127.0.0.1:8000`
+
+For Cloudflare DNS, create an `A` record for the subdomain pointing at the VPS IPv4 address, and an `AAAA` record only if the VPS has IPv6. Start with the record set to **DNS only** until Caddy successfully obtains a certificate. If you enable the Cloudflare proxy later, use SSL/TLS mode **Full (strict)**, not Flexible.
 
 ### One-time server setup
 
@@ -161,7 +163,10 @@ cd /opt/clever/app
 sudo -u clever python3.13 -m venv .venv
 sudo -u clever .venv/bin/pip install --upgrade pip
 sudo -u clever .venv/bin/pip install -r requirements.txt
+sudo chmod o+x /opt/clever
 ```
+
+The final `chmod` lets the `caddy` user traverse `/opt/clever` to read static/media files. The app directory and files remain owned by `clever`.
 
 Install the Linux Tailwind standalone binary on the VPS. It is intentionally
 gitignored because each platform needs a different binary:
@@ -201,18 +206,19 @@ Bootstrap the database and static assets:
 cd /opt/clever/app
 sudo -u clever .venv/bin/python manage.py check
 sudo -u clever .venv/bin/python manage.py migrate
-sudo -u clever make prod-build
+sudo -u clever bash -lc 'set -a && . ./.env && set +a && make prod-build'
 sudo -u clever .venv/bin/python manage.py seed_all
 sudo -u clever sqlite3 db.sqlite3 'PRAGMA journal_mode=WAL;'
 ```
+
+Manual production commands must load `.env`; `systemd` does this automatically through `EnvironmentFile`, but an SSH shell does not.
 
 ### Per-deploy
 
 ```bash
 git pull
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python manage.py migrate
-make prod-build
+bash -lc 'set -a && . ./.env && set +a && .venv/bin/python manage.py check && .venv/bin/python manage.py migrate && make prod-build'
 sudo systemctl restart clever-daphne
 ```
 
@@ -261,6 +267,43 @@ point-in-time recovery once it matters.
 The deployment examples live in `deploy/clever-daphne.service` and
 `deploy/Caddyfile.example`.
 
+### Verify
+
+```bash
+curl -I https://gallery.example.com/healthz/
+curl -I https://gallery.example.com/
+```
+
+Check the hashed CSS URL rendered by the page:
+
+```bash
+python3 - <<'PY'
+import re
+import urllib.request
+
+domain = "https://gallery.example.com"
+html = urllib.request.urlopen(domain + "/").read().decode()
+for path in re.findall(r'href="([^"]*css/[^"]+)"', html):
+    url = domain + path if path.startswith("/") else path
+    with urllib.request.urlopen(url) as response:
+        print(response.status, response.headers.get("content-type"), url)
+PY
+```
+
+### Troubleshooting
+
+If root works but styles are missing, check the stylesheet directly. A `403` usually means Caddy cannot traverse `/opt/clever`; run `sudo chmod o+x /opt/clever`. A `404` usually means the Caddy `handle_path /static/*` mapping does not match `STATIC_ROOT` or `collectstatic` did not run.
+
+If production raises `Missing staticfiles manifest entry`, rebuild static files with `.env` loaded:
+
+```bash
+cd /opt/clever/app
+sudo -u clever bash -lc 'set -a && . ./.env && set +a && rm -rf staticfiles && make prod-build'
+sudo systemctl restart clever-daphne
+```
+
+If `collectstatic` reports `css/tailwindcss` missing, make sure Tailwind source lives in `assets/css/input.css`, not under `static/`, and that only compiled `static/css/app.css` is collected.
+
 ## Architectural decisions
 
 ### Why Django 6.0 (not 5.2 LTS)
@@ -294,7 +337,7 @@ so broadcasts reach sockets connected to other processes.
 ### Tailwind
 
 Tailwind v4's CSS-only configuration: theme tokens, components, and
-content-source globs all live in `static/css/input.css`. No `tailwind.config.js`,
+content-source globs all live in `assets/css/input.css`. No `tailwind.config.js`,
 no PostCSS, no Node. The standalone binary is the only build dependency.
 
 ### Likes and comments

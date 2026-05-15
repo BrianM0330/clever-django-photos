@@ -77,7 +77,7 @@ class LandingViewTests(TestCase):
 
     def test_landing_includes_hero_illustration_and_animation_hooks(self) -> None:
         """Catches regressions where the SVG illustration or its animation
-        utilities (defined in static/css/input.css) get accidentally dropped."""
+        utilities (defined in assets/css/input.css) get accidentally dropped."""
         response = self.client.get(reverse("core:landing"))
         body = response.content.decode()
         self.assertIn("mask-glow-sweep", body)
