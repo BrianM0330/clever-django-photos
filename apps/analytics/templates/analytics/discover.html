@@ -4,20 +4,17 @@
 
 {% block content %}
   <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="mb-8 flex flex-col gap-3 border-b border-gray-100 pb-6 transition-colors duration-200 dark:border-zinc-800 sm:flex-row sm:items-end sm:justify-between">
-      <div>
+    <div class="mb-8 flex flex-col gap-6 border-b border-gray-100 pb-6 transition-colors duration-200 dark:border-zinc-800 sm:flex-row sm:items-start sm:justify-between">
+      <div class="flex-1 max-w-4xl pr-4 sm:pr-8">
         <p class="text-sm font-semibold uppercase tracking-[0.2em] text-clever-600 dark:text-clever-400">Discover</p>
         <h1 class="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Recommended For You</h1>
-        <p class="mt-2 text-sm text-gray-500 dark:text-zinc-400">
+        <p class="mt-2 text-base leading-relaxed text-gray-500 dark:text-zinc-400 max-w-prose text-wrap">
           <strong>Methodology:</strong> We use a collaborative filtering algorithm (Jaccard similarity) to find users who have liked the same photos as you. 
           A "similar user" is defined by calculating the intersection of photos both of you have liked, divided by the union of all photos you've both liked.
           The pictures below are photos that your similar users have liked, but you haven't yet.
         </p>
       </div>
 
-      <div class="text-sm font-medium text-gray-500 dark:text-zinc-400">
-        {{ photos|length }} photo{{ photos|length|pluralize }}
-      </div>
     </div>
 
     {% if photos %}

@@ -1,0 +1,18 @@
+{% load photo_tags static %}
+
+<article id="photo-{{ photo.pk }}" class="group block">
+  <div class="relative aspect-[7/5] overflow-hidden rounded-xl border border-gray-100 bg-gray-100 shadow-sm transition duration-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900" style="background-color: {{ photo.avg_color }}">
+    <a href="{{ photo.src_large2x }}"
+       class="block h-full w-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-clever-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950"
+       aria-label="Open {{ photo.alt }}"
+       data-pswp-width="{{ photo.width }}"
+       data-pswp-height="{{ photo.height }}"
+       data-pswp-srcset="{% photo_srcset photo %}"
+       data-pswp-caption="By {{ photo.photographer }}">
+      <img src="{{ photo.src_tiny }}"
+           alt="{{ photo.alt }}"
+           class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+           loading="lazy">
+    </a>
+  </div>
+</article>

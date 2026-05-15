@@ -50,6 +50,55 @@
            dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500;
   }
 
+  .site-nav-logo {
+    @apply hidden shrink-0 items-center md:flex;
+  }
+
+  .site-nav-links {
+    @apply flex min-w-0 shrink items-center justify-start gap-4 text-base
+           sm:gap-6 sm:text-lg md:absolute md:left-1/2 md:shrink-0
+           md:-translate-x-1/2;
+  }
+
+  .site-nav-account {
+    @apply ml-auto flex shrink-0 items-center justify-end gap-3 leading-none;
+  }
+
+  .site-nav-account form {
+    @apply m-0 flex items-center;
+  }
+
+  .site-nav-avatar {
+    @apply inline-flex h-7 w-7 flex-none items-center justify-center rounded-full
+           border border-clever-400 text-xs font-semibold leading-none text-clever-400
+           no-underline;
+  }
+
+  .toast-region {
+    @apply pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex max-w-none
+           flex-col gap-2 md:inset-x-auto md:bottom-5 md:left-5 md:w-[calc(100%-2.5rem)]
+           md:max-w-xs;
+  }
+
+  .toast-card {
+    @apply pointer-events-auto flex items-center rounded-2xl border border-clever-400/40
+           bg-zinc-950/90 px-5 py-4 text-white shadow-2xl shadow-clever-500/15
+           backdrop-blur transition hover:bg-zinc-900 focus:outline-none
+           focus-visible:ring-2 focus-visible:ring-clever-400 md:px-4 md:py-3;
+  }
+
+  .toast-copy {
+    @apply flex min-w-0 flex-col;
+  }
+
+  .toast-title {
+    @apply truncate text-base font-semibold leading-tight md:text-sm;
+  }
+
+  .toast-subtitle {
+    @apply mt-1 text-sm font-light leading-tight text-zinc-300 md:mt-0.5 md:text-xs;
+  }
+
   .pswp__custom-caption {
     @apply absolute bottom-4 left-1/2 max-w-[min(90vw,32rem)] -translate-x-1/2
            rounded-full bg-zinc-950/80 px-4 py-2 text-center text-sm font-medium
@@ -70,6 +119,15 @@
   animation: draw 3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
+@utility animate-toast-in {
+  animation: toast-in 180ms ease-out;
+}
+
+@utility toast-leave {
+  opacity: 0;
+  transform: translateY(0.5rem);
+}
+
 @utility delay-150 {
   animation-delay: 150ms;
 }
@@ -86,6 +144,17 @@
 @keyframes draw {
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
