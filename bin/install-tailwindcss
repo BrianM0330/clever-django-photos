@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Install the Tailwind CSS standalone binary used by the dev and prod CSS builds.
+set -euo pipefail
+
+root_dir="$(cd "$(dirname "$0")/.." && pwd)"
+target="$root_dir/bin/tailwindcss"
+version="${TAILWIND_VERSION:-latest}"
+
+case "$(uname -s)" in
+  Darwin) os="macos" ;;
+  Linux) os="linux" ;;
+  *)
+    printf "Unsupported OS for Tailwind standalone binary: %s\n" "$(uname -s)" >&2
+    exit 1
+    ;;
+esac
+
+case "$(uname -m)" in
+  arm64|aarch64) arch="arm64" ;;
+  x86_64|amd64) arch="x64" ;;
+  *)
+    printf "Unsupported CPU architecture for Tailwind standalone binary: %s\n" "$(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
+if [[ -x "$target" ]]; then
+  "$target" --help >/dev/null
+  printf "Tailwind CSS standalone binary is installed at %s\n" "$target"
+  exit 0
+fi
+
+url="https://github.com/tailwindlabs/tailwindcss/releases/${version}/download/tailwindcss-${os}-${arch}"
+
+printf "Installing Tailwind CSS standalone binary from %s\n" "$url"
+curl -fsSL "$url" -o "$target"
+chmod +x "$target"
+"$target" --help >/dev/null
+printf "Tailwind CSS standalone binary is installed at %s\n" "$target"

@@ -29,10 +29,10 @@ make db-setup
 Run the app:
 
 ```bash
-bin/dev
+make dev
 ```
 
-Open [http://localhost:8000](http://localhost:8000). `bin/dev` runs Daphne and the Tailwind watcher together through `honcho`. If you want the plain Django server instead, use `make server`.
+Open [http://localhost:8000](http://localhost:8000). `make dev` runs Daphne and the Tailwind watcher together through `honcho`. On first run it downloads the gitignored Tailwind standalone binary into `bin/tailwindcss`. If you want the plain Django server instead, use `make server`.
 
 ## Test Accounts
 

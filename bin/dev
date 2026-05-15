@@ -2,4 +2,10 @@
 # Run the dev server (Django) and Tailwind watcher together.
 # Honcho streams both processes' logs to the terminal; Ctrl-C kills both.
 set -euo pipefail
-exec "$(dirname "$0")/../.venv/bin/honcho" -f Procfile.dev start "$@"
+bin_dir="$(cd "$(dirname "$0")" && pwd)"
+
+if [[ ! -x "$bin_dir/tailwindcss" ]]; then
+  "$bin_dir/install-tailwindcss"
+fi
+
+exec "$bin_dir/../.venv/bin/honcho" -f Procfile.dev start "$@"

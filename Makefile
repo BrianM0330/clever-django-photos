@@ -8,10 +8,11 @@ RAILS_DEPLOY_PATH ?= /opt/rails-clever-gallery/app
 RAILS_DEPLOY_SERVICE ?= rails-clever-gallery
 RAILS_DEPLOY_DOMAIN ?= clever-rails-gallery.bmendo.dev
 
-.PHONY: help check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup db-analytics seed collectstatic prod-build redeploy redeploy-rails
+.PHONY: help dev check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup db-analytics seed install-tailwindcss collectstatic prod-build redeploy redeploy-rails
 
 help:
 	@printf "Available commands:\n"
+	@printf "  make dev            Start Daphne + Tailwind watcher\n"
 	@printf "  make check          Run Django system checks\n"
 	@printf "  make server         Start the Django development server\n"
 	@printf "  make console        Open the Django shell\n"
@@ -26,10 +27,14 @@ help:
 	@printf "  make db-setup       Migrate and seed the database\n"
 	@printf "  make db-analytics   Run analytics jobs\n"
 	@printf "  make seed           Run seed_all\n"
+	@printf "  make install-tailwindcss Install Tailwind standalone binary\n"
 	@printf "  make collectstatic  Collect static files\n"
 	@printf "  make prod-build     Build CSS and collect static files\n"
 	@printf "  make redeploy       Pull and redeploy on the VPS\n"
 	@printf "  make redeploy-rails Sync and redeploy Rails on the VPS\n"
+
+dev:
+	bin/dev
 
 check:
 	$(PYTHON) manage.py check
@@ -75,10 +80,14 @@ db-analytics:
 seed:
 	$(PYTHON) manage.py seed_all
 
+install-tailwindcss:
+	bin/install-tailwindcss
+
 collectstatic:
 	$(PYTHON) manage.py collectstatic --noinput
 
 prod-build:
+	bin/install-tailwindcss
 	bin/tailwindcss -i assets/css/input.css -o static/css/app.css --minify
 	$(PYTHON) manage.py collectstatic --noinput
 
