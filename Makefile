@@ -1,6 +1,9 @@
 PYTHON := .venv/bin/python
+DEPLOY_HOST ?= clever-vps
+DEPLOY_PATH ?= /opt/clever/app
+DEPLOY_SERVICE ?= clever-daphne
 
-.PHONY: help check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup seed collectstatic prod-build
+.PHONY: help check server console migrations migrate test lint format db-migrations db-migrate db-reset db-setup seed collectstatic prod-build redeploy
 
 help:
 	@printf "Available commands:\n"
@@ -19,6 +22,7 @@ help:
 	@printf "  make seed           Run seed_all\n"
 	@printf "  make collectstatic  Collect static files\n"
 	@printf "  make prod-build     Build CSS and collect static files\n"
+	@printf "  make redeploy       Pull and redeploy on the VPS\n"
 
 check:
 	$(PYTHON) manage.py check
@@ -65,3 +69,6 @@ collectstatic:
 prod-build:
 	bin/tailwindcss -i static/css/input.css -o static/css/app.css --minify
 	$(PYTHON) manage.py collectstatic --noinput
+
+redeploy:
+	ssh $(DEPLOY_HOST) "cd $(DEPLOY_PATH) && sudo -u clever git pull && sudo -u clever .venv/bin/pip install -r requirements.txt && sudo -u clever .venv/bin/python manage.py check && sudo -u clever .venv/bin/python manage.py migrate && sudo -u clever make prod-build && sudo systemctl restart $(DEPLOY_SERVICE) && sudo systemctl status $(DEPLOY_SERVICE) --no-pager"
